@@ -361,10 +361,14 @@ export default function VotesScreen() {
                   <Text className="text-xl font-bold text-gray-900 mb-2">{selectedVote.title}</Text>
                   {selectedVote.description && <Text className="text-gray-500 text-sm mb-3">{selectedVote.description}</Text>}
                   <View className="flex-row flex-wrap gap-2">
-                    {selectedVote.multiple_choice && <Text className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">복수선택</Text>}
-                    {isExpired && <Text className="text-xs bg-gray-100 text-gray-500 px-2 py-1 rounded-full">종료됨</Text>}
+                    {selectedVote.multiple_choice && (
+                      <Text key="multiple" className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">복수선택</Text>
+                    )}
+                    {isExpired && (
+                      <Text key="expired" className="text-xs bg-gray-100 text-gray-500 px-2 py-1 rounded-full">종료됨</Text>
+                    )}
                     {selectedVote.ends_at && (
-                      <Text className="text-xs bg-gray-100 text-gray-500 px-2 py-1 rounded-full">
+                      <Text key="deadline" className="text-xs bg-gray-100 text-gray-500 px-2 py-1 rounded-full">
                         ~{format(new Date(selectedVote.ends_at), 'M월 d일 HH:mm', { locale: ko })}
                       </Text>
                     )}
@@ -459,8 +463,9 @@ export default function VotesScreen() {
                 {editVoteItems.map((item, idx) => {
                   const hasResponses = selectedVote?.items?.[idx]?.responses && (selectedVote.items[idx].responses?.length ?? 0) > 0;
                   const responseCount = selectedVote?.items?.[idx]?.responses?.length ?? 0;
+                  const itemKey = `vote-item-${selectedVote?.id}-${idx}`;
                   return (
-                    <View key={idx}>
+                    <View key={itemKey}>
                       {hasResponses && (
                         <Text className="text-xs text-red-500 mb-1 ml-1">
                           ⚠️ {responseCount}명이 투표했으므로 수정/삭제 불가
