@@ -1,15 +1,16 @@
 import { create } from 'zustand';
+import { Vote, Song } from '@/types';
 
 interface HomeNavigationStore {
-  selectedVoteId: string | null;
-  setSelectedVoteId: (id: string | null) => void;
-  selectedSongId: string | null;
-  setSelectedSongId: (id: string | null) => void;
+  selectedVote: Vote | null;
+  setSelectedVote: (vote: Vote | null) => void;
+  selectedSong: Song | null;
+  setSelectedSong: (song: Song | null) => void;
 }
 
 export const useHomeNavigationStore = create<HomeNavigationStore>((set) => ({
-  selectedVoteId: null,
-  setSelectedVoteId: (id) => set({ selectedVoteId: id }),
-  selectedSongId: null,
-  setSelectedSongId: (id) => set({ selectedSongId: id }),
+  selectedVote: null,
+  setSelectedVote: (vote) => set({ selectedVote: vote }),
+  selectedSong: null,
+  setSelectedSong: (song) => set({ selectedSong: song }),
 }));

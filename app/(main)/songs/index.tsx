@@ -14,7 +14,7 @@ import { Input } from '@/components/ui/Input';
 
 export default function SongsScreen() {
   const { profile } = useAuthStore();
-  const { selectedSongId, setSelectedSongId } = useHomeNavigationStore();
+  const { selectedSong: homeSelectedSong, setSelectedSong: setHomeSelectedSong } = useHomeNavigationStore();
   const [songs, setSongs] = useState<Song[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [refreshing, setRefreshing] = useState(false);
@@ -44,18 +44,17 @@ export default function SongsScreen() {
 
   // 홈 화면에서 선택된 특송 자동으로 표시
   useEffect(() => {
-    if (selectedSongId && songs.length > 0) {
-      const song = songs.find((s) => s.id === selectedSongId);
-      if (song) {
-        setSelectedSong(song);
-        setEditForm({ title: song.title || '', description: song.description || '' });
-        setEditYoutubeUrls(song.youtube_links || ['']);
-        setEditYoutubeTitles(song.youtube_titles || ['전체']);
-        setShowSongDetail(true);
-        setSelectedSongId(null); // 초기화
-      }
+    if (homeSelectedSong) {
+      setSelectedSong(homeSelectedSong); // 선택된 특송 설정
+      setEditForm({ title: homeSelectedSong.title || '', description: homeSelectedSong.description || '' }); // 편집 폼 설정
+      setEditYoutubeUrls(homeSelectedSong.youtube_links || ['']); // YouTube URL 설정
+      setEditYoutubeTitles(homeSelectedSong.youtube_titles || ['전체']); // YouTube 제목 설정
+      setEditFiles([]); // 편집 파일 초기화
+      setEditingSong(false); // 편집 모드 해제
+      setShowSongDetail(true); // 상세 모달 표시
+      setHomeSelectedSong(null); // 초기화
     }
-  }, [selectedSongId, songs]);
+  }, [homeSelectedSong]);
 
   const onRefresh = async () => { setRefreshing(true); await fetchSongs(); setRefreshing(false); };
 

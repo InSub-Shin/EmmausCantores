@@ -18,7 +18,7 @@ import { PART_LABELS } from '@/types';
 export default function VotesScreen() {
   const { profile } = useAuthStore();
   const { setAutoSelectDate } = useScheduleStore();
-  const { selectedVoteId, setSelectedVoteId } = useHomeNavigationStore();
+  const { selectedVote: homeSelectedVote, setSelectedVote: setHomeSelectedVote } = useHomeNavigationStore();
   const [votes, setVotes] = useState<Vote[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedVote, setSelectedVote] = useState<Vote | null>(null);
@@ -61,17 +61,20 @@ export default function VotesScreen() {
 
   // 홈 화면에서 선택된 투표 자동으로 표시
   useEffect(() => {
-    if (selectedVoteId) {
-      fetchVoteDetail(selectedVoteId).then(() => {
+    if (homeSelectedVote) {
+      setSelectedVote(homeSelectedVote); // 선택된 투표 설정
+      setSelected([]); // 선택 초기화
+      setIsEditing(false); // 편집 모드 해제
+      setEditForm({ title: '', description: '' }); // 편집 폼 초기화
+      setEditVoteItems(['', '']); // 편집 항목 초기화
+
+      // 자세한 정보 로드 (부분 정보 있을 수 있으니 전체 정보 로드)
+      fetchVoteDetail(homeSelectedVote.id).then(() => {
         setShowVoteDetail(true);
-        setSelected([]);
-        setIsEditing(false);
-        setEditForm({ title: '', description: '' });
-        setEditVoteItems(['', '']);
       });
-      setSelectedVoteId(null); // 초기화
+      setHomeSelectedVote(null); // 초기화
     }
-  }, [selectedVoteId]);
+  }, [homeSelectedVote]);
 
   const onRefresh = async () => {
     setRefreshing(true);

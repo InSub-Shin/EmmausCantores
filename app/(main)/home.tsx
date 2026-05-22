@@ -14,7 +14,7 @@ import { ko } from 'date-fns/locale';
 
 export default function HomeScreen() {
   const { profile, signOut } = useAuthStore();
-  const { setSelectedVoteId, setSelectedSongId } = useHomeNavigationStore();
+  const { setSelectedVote, setSelectedSong } = useHomeNavigationStore();
   const [unreadVotes, setUnreadVotes] = useState<Vote[]>([]);
   const [unreadSongs, setUnreadSongs] = useState<Song[]>([]);
   const [viewedSongIds, setViewedSongIds] = useState<Set<string>>(new Set());
@@ -170,7 +170,7 @@ export default function HomeScreen() {
                     <TouchableOpacity
                       key={vote.id}
                       onPress={() => {
-                        setSelectedVoteId(vote.id);
+                        setSelectedVote(vote);
                         router.push('/(main)/votes');
                       }}
                       className="bg-white border border-red-200 rounded-lg p-3 mb-2"
@@ -240,7 +240,7 @@ export default function HomeScreen() {
                         </TouchableOpacity>
                         <TouchableOpacity
                           onPress={() => {
-                            setSelectedSongId(song.id);
+                            setSelectedSong(song);
                             router.push('/(main)/songs');
                           }}
                           className="flex-1 bg-blue-500 rounded py-1.5 items-center"
