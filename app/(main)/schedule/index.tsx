@@ -66,7 +66,7 @@ export default function ScheduleScreen() {
   const fetchSchedules = useCallback(async () => {
     const { data } = await supabase
       .from('schedules')
-      .select('id, title, description, start_at, end_at, location, created_by, created_at, creator:profiles!created_by(name)')
+      .select('id, title, description, start_at, end_at, location, created_by, created_at, creator:profiles!created_by(name), songs:schedule_songs(songs(id, title))')
       .order('start_at');
     if (data) {
       setSchedules(data as unknown as Schedule[]);

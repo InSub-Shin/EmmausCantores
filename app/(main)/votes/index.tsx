@@ -38,7 +38,7 @@ export default function VotesScreen() {
   const fetchVotes = useCallback(async () => {
     const { data } = await supabase
       .from('votes')
-      .select(`id, title, description, is_anonymous, multiple_choice, ends_at, created_by, created_at, schedule_id, creator:profiles!created_by(name)`)
+      .select(`id, title, description, is_anonymous, multiple_choice, ends_at, created_by, created_at, schedule_id, creator:profiles!created_by(name), items:vote_items(responses:vote_responses(user_id))`)
       .order('created_at', { ascending: false });
     if (data) setVotes(data as unknown as Vote[]);
   }, []);
