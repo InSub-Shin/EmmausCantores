@@ -26,7 +26,7 @@ export default function MemberDetailScreen() {
   const isExecutive = myProfile?.is_executive;
   const isSelf = myProfile?.id === id;
   const canEdit = isExecutive || isSelf;
-  const canChangeRole = isLeader; // 단장만 직책 변경 가능
+  const canChangeRole = isLeader && !isSelf; // 단장만 직책 변경 가능 (단, 본인은 제외)
 
   useEffect(() => {
     supabase.from('profiles').select('*').eq('id', id).single().then(({ data }) => {
@@ -36,22 +36,73 @@ export default function MemberDetailScreen() {
 
   const handleSave = async () => {
     if (!member) return;
-    setSaving(true);
-    const updateData: Partial<Profile> = {
-      name: form.name,
-      baptismal_name: form.baptismal_name,
-      phone: form.phone,
-      birthday: form.birthday,
-      feast_day: form.feast_day,
-      part: form.part,
-    };
-    if (canChangeRole) {
-      updateData.role = form.role;
-      updateData.is_executive = form.role ? EXECUTIVE_ROLES.includes(form.role as Role) : false;
+
+    // 단장 역할 변경 처리
+    if (canChangeRole && form.role === 'leader' && member.role !== 'leader') {
+      return Alert.alert(
+        '단장 직책 변경',
+        `${member.name}을(를) 단장으로 지정하시겠습니까?\n\n현재 단장인 ${myProfile?.name}님은 평단원으로 변경됩니다.`,
+        [
+          { text: '취소', onPress: () => {}, style: 'cancel' },
+          {
+            text: '확인',
+            onPress: async () => {
+              await performSave(true); // isLeaderChange = true
+            },
+          },
+        ]
+      );
     }
-    const { error } = await supabase.from('profiles').update(updateData).eq('id', id);
-    if (error) Alert.alert('오류', '저장에 실패했습니다.');
-    else { setMember({ ...member, ...updateData } as Profile); setEditing(false); }
+
+    await performSave(false);
+  };
+
+  const performSave = async (isLeaderChange: boolean) => {
+    if (!member || !myProfile) return;
+    setSaving(true);
+
+    try {
+      const updateData: Partial<Profile> = {
+        name: form.name,
+        baptismal_name: form.baptismal_name,
+        phone: form.phone,
+        birthday: form.birthday,
+        feast_day: form.feast_day,
+        part: form.part,
+      };
+
+      if (canChangeRole) {
+        updateData.role = form.role;
+        updateData.is_executive = form.role ? EXECUTIVE_ROLES.includes(form.role as Role) : false;
+      }
+
+      // 단장 변경 시 기존 단장을 평단원으로 변경
+      if (isLeaderChange) {
+        const { error: leaderError } = await supabase
+          .from('profiles')
+          .update({ role: 'member', is_executive: false })
+          .eq('id', myProfile.id);
+
+        if (leaderError) {
+          Alert.alert('오류', '단장 변경에 실패했습니다.');
+          setSaving(false);
+          return;
+        }
+      }
+
+      const { error } = await supabase.from('profiles').update(updateData).eq('id', id);
+      if (error) {
+        Alert.alert('오류', '저장에 실패했습니다.');
+      } else {
+        setMember({ ...member, ...updateData } as Profile);
+        setEditing(false);
+        if (isLeaderChange) {
+          Alert.alert('완료', `${member.name}님이 새로운 단장이 되었습니다.`);
+        }
+      }
+    } catch (error) {
+      Alert.alert('오류', '저장 중 오류가 발생했습니다.');
+    }
     setSaving(false);
   };
 
@@ -123,7 +174,13 @@ export default function MemberDetailScreen() {
               </View>
             </View>
 
-            {canChangeRole && (
+            {isLeader && isSelf ? (
+              <View className="mb-4 p-3 bg-amber-50 rounded-lg border border-amber-200">
+                <Text className="text-xs text-amber-700 font-medium">
+                  단장은 최소 1명이 필요하므로 본인의 직책을 변경할 수 없습니다.
+                </Text>
+              </View>
+            ) : canChangeRole ? (
               <View className="mb-4">
                 <Text className="text-xs text-gray-500 mb-1">직책 (단장 권한)</Text>
                 <View className="flex-row flex-wrap gap-2">
@@ -135,7 +192,7 @@ export default function MemberDetailScreen() {
                   ))}
                 </View>
               </View>
-            )}
+            ) : null}
 
             <View className="flex-row gap-3">
               <Button label="취소" variant="outline" onPress={() => setEditing(false)} className="flex-1" />
