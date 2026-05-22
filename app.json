@@ -1,0 +1,59 @@
+{
+  "expo": {
+    "name": "엠마우스 깐토레스",
+    "slug": "emmaus-cantores",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "scheme": "emmaus",
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.emmaus.cantores",
+      "infoPlist": {
+        "NSPhotoLibraryUsageDescription": "성가대 활동 사진 업로드를 위해 사진 접근 권한이 필요합니다.",
+        "NSPhotoLibraryAddUsageDescription": "사진을 저장하기 위해 사진 라이브러리 접근 권한이 필요합니다."
+      }
+    },
+    "android": {
+      "package": "com.emmaus.cantores",
+      "adaptiveIcon": {
+        "backgroundColor": "#4F46E5",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png"
+      },
+      "permissions": [
+        "android.permission.RECEIVE_BOOT_COMPLETED",
+        "android.permission.VIBRATE",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification-icon.png",
+          "color": "#4F46E5",
+          "sounds": [],
+          "enableRemoteNotifications": false
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "성가대 활동 사진 업로드를 위해 사진 접근 권한이 필요합니다."
+        }
+      ],
+      "@react-native-community/datetimepicker"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}
