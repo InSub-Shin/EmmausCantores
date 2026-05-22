@@ -57,7 +57,7 @@ export default function VotesScreen() {
     supabase.from('profiles').select('*').then(({ data }) => {
       if (data) setAllMembers(data as Profile[]);
     });
-  }, [fetchVotes]);
+  }, []); // 초기 로드만
 
   // 홈 화면에서 선택된 투표 자동으로 표시
   useEffect(() => {
@@ -67,14 +67,13 @@ export default function VotesScreen() {
       setIsEditing(false); // 편집 모드 해제
       setEditForm({ title: '', description: '' }); // 편집 폼 초기화
       setEditVoteItems(['', '']); // 편집 항목 초기화
+      setShowVoteDetail(true); // 모달 먼저 열기
 
-      // 자세한 정보 로드 (부분 정보 있을 수 있으니 전체 정보 로드)
-      fetchVoteDetail(homeSelectedVote.id).then(() => {
-        setShowVoteDetail(true);
-      });
+      // 자세한 정보 로드 (백그라운드에서)
+      fetchVoteDetail(homeSelectedVote.id);
       setHomeSelectedVote(null); // 초기화
     }
-  }, [homeSelectedVote]);
+  }, [homeSelectedVote, fetchVoteDetail]);
 
   const onRefresh = async () => {
     setRefreshing(true);

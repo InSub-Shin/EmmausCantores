@@ -40,7 +40,7 @@ export default function SongsScreen() {
     if (data) setSongs(data as unknown as Song[]);
   }, []);
 
-  useEffect(() => { fetchSongs(); }, [fetchSongs]);
+  useEffect(() => { fetchSongs(); }, []); // 초기 로드만
 
   // 홈 화면에서 선택된 특송 자동으로 표시
   useEffect(() => {
