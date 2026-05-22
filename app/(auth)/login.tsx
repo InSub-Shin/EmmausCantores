@@ -70,7 +70,7 @@ export default function LoginScreen() {
         <View className="w-24 h-24 bg-indigo-600 rounded-3xl items-center justify-center mb-6 shadow-lg">
           <Text className="text-white text-4xl">♪</Text>
         </View>
-        <Text className="text-3xl font-bold text-indigo-900 mb-2">엠마우스 깐토레스</Text>
+        <Text className="text-3xl font-bold text-indigo-900 mb-2">엠마우스 깐또레스</Text>
         <Text className="text-gray-500 text-base text-center">
           성가대 전용 앱에 오신 것을 환영합니다
         </Text>
