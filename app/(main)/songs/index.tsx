@@ -6,6 +6,7 @@ import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/store/auth';
+import { useHomeNavigationStore } from '@/store/home-navigation';
 import { Song, SongFile } from '@/types';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -13,6 +14,7 @@ import { Input } from '@/components/ui/Input';
 
 export default function SongsScreen() {
   const { profile } = useAuthStore();
+  const { selectedSongId, setSelectedSongId } = useHomeNavigationStore();
   const [songs, setSongs] = useState<Song[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [refreshing, setRefreshing] = useState(false);
@@ -39,6 +41,21 @@ export default function SongsScreen() {
   }, []);
 
   useEffect(() => { fetchSongs(); }, [fetchSongs]);
+
+  // 홈 화면에서 선택된 특송 자동으로 표시
+  useEffect(() => {
+    if (selectedSongId && songs.length > 0) {
+      const song = songs.find((s) => s.id === selectedSongId);
+      if (song) {
+        setSelectedSong(song);
+        setEditForm({ title: song.title || '', description: song.description || '' });
+        setEditYoutubeUrls(song.youtube_links || ['']);
+        setEditYoutubeTitles(song.youtube_titles || ['전체']);
+        setShowSongDetail(true);
+        setSelectedSongId(null); // 초기화
+      }
+    }
+  }, [selectedSongId, songs]);
 
   const onRefresh = async () => { setRefreshing(true); await fetchSongs(); setRefreshing(false); };
 

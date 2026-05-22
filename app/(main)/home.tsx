@@ -2,6 +2,7 @@ import { View, Text, ScrollView, TouchableOpacity, Alert, FlatList } from 'react
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuthStore } from '@/store/auth';
+import { useHomeNavigationStore } from '@/store/home-navigation';
 import { useCallback, useEffect, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '@/lib/supabase';
@@ -13,6 +14,7 @@ import { ko } from 'date-fns/locale';
 
 export default function HomeScreen() {
   const { profile, signOut } = useAuthStore();
+  const { setSelectedVoteId, setSelectedSongId } = useHomeNavigationStore();
   const [unreadVotes, setUnreadVotes] = useState<Vote[]>([]);
   const [unreadSongs, setUnreadSongs] = useState<Song[]>([]);
   const [viewedSongIds, setViewedSongIds] = useState<Set<string>>(new Set());
@@ -168,6 +170,7 @@ export default function HomeScreen() {
                     <TouchableOpacity
                       key={vote.id}
                       onPress={() => {
+                        setSelectedVoteId(vote.id);
                         router.push('/(main)/votes');
                       }}
                       className="bg-white border border-red-200 rounded-lg p-3 mb-2"
@@ -236,7 +239,10 @@ export default function HomeScreen() {
                           <Text className="text-blue-600 text-xs font-medium">확인</Text>
                         </TouchableOpacity>
                         <TouchableOpacity
-                          onPress={() => router.push('/(main)/songs')}
+                          onPress={() => {
+                            setSelectedSongId(song.id);
+                            router.push('/(main)/songs');
+                          }}
                           className="flex-1 bg-blue-500 rounded py-1.5 items-center"
                         >
                           <Text className="text-white text-xs font-medium">상세보기</Text>

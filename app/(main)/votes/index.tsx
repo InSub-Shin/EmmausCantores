@@ -7,6 +7,7 @@ import { ko } from 'date-fns/locale';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/store/auth';
 import { useScheduleStore } from '@/store/schedule';
+import { useHomeNavigationStore } from '@/store/home-navigation';
 import { Vote, VoteItem, Profile } from '@/types';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -17,6 +18,7 @@ import { PART_LABELS } from '@/types';
 export default function VotesScreen() {
   const { profile } = useAuthStore();
   const { setAutoSelectDate } = useScheduleStore();
+  const { selectedVoteId, setSelectedVoteId } = useHomeNavigationStore();
   const [votes, setVotes] = useState<Vote[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedVote, setSelectedVote] = useState<Vote | null>(null);
@@ -56,6 +58,20 @@ export default function VotesScreen() {
       if (data) setAllMembers(data as Profile[]);
     });
   }, [fetchVotes]);
+
+  // 홈 화면에서 선택된 투표 자동으로 표시
+  useEffect(() => {
+    if (selectedVoteId) {
+      fetchVoteDetail(selectedVoteId).then(() => {
+        setShowVoteDetail(true);
+        setSelected([]);
+        setIsEditing(false);
+        setEditForm({ title: '', description: '' });
+        setEditVoteItems(['', '']);
+      });
+      setSelectedVoteId(null); // 초기화
+    }
+  }, [selectedVoteId]);
 
   const onRefresh = async () => {
     setRefreshing(true);
