@@ -49,8 +49,8 @@ export default function HomeScreen() {
       if (allVotes && profile) {
         // 사용자가 투표하지 않은 투표 필터링
         const unvoted = allVotes.filter((vote) => {
-          const hasVoted = vote.items?.some((item) =>
-            item.responses?.some((r) => r.user_id === profile.id)
+          const hasVoted = vote.items?.some((item: any) =>
+            item.responses?.some((r: any) => r.user_id === profile.id)
           );
           return !hasVoted;
         });

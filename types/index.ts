@@ -69,7 +69,7 @@ export interface Vote {
   created_at: string;
   schedule_id?: string | null;
   creator?: Profile;
-  schedule?: { id: string; title: string } | null;
+  schedule?: { id: string; title: string; start_at?: string } | null;
   items?: VoteItem[];
 }
 
