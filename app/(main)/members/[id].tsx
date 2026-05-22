@@ -7,7 +7,7 @@ import { useAuthStore } from '@/store/auth';
 import { Profile, PART_LABELS, ROLE_LABELS, Part, Role, EXECUTIVE_ROLES } from '@/types';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Input';
+import { Input, formatPhoneNumber } from '@/components/ui/Input';
 import { DatePickerField } from '@/components/ui/DatePickerField';
 import { FeastDayPicker } from '@/components/ui/FeastDayPicker';
 
@@ -148,7 +148,7 @@ export default function MemberDetailScreen() {
           <Card>
             <Input label="이름" value={(form.name as string) ?? ''} onChangeText={(v) => setForm((f) => ({ ...f, name: v }))} />
             <Input label="세례명" value={(form.baptismal_name as string) ?? ''} onChangeText={(v) => setForm((f) => ({ ...f, baptismal_name: v }))} />
-            <Input label="전화번호" value={(form.phone as string) ?? ''} onChangeText={(v) => setForm((f) => ({ ...f, phone: v }))} placeholder="010-0000-0000" keyboardType="phone-pad" />
+            <Input label="전화번호" value={(form.phone as string) ?? ''} onChangeText={(v) => setForm((f) => ({ ...f, phone: v }))} placeholder="010-0000-0000" phoneFormat />
 
             <DatePickerField
               label="생년월일"
@@ -202,7 +202,7 @@ export default function MemberDetailScreen() {
         ) : (
           <Card>
             {[
-              { label: '전화번호', value: member.phone },
+              { label: '전화번호', value: member.phone ? formatPhoneNumber(member.phone) : null },
               { label: '생년월일', value: member.birthday?.replace(/(\d{4})-(\d{2})-(\d{2})/, '$1년 $2월 $3일') },
               { label: '축일', value: member.feast_day?.replace(/(\d{2})-(\d{2})/, '$1월 $2일') },
             ].map(({ label, value }) => (

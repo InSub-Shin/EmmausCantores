@@ -163,7 +163,7 @@ export default function MembersScreen() {
           <ScrollView contentContainerStyle={{ padding: 20 }}>
             <Input label="이름 *" value={form.name} onChangeText={(v) => setForm((f) => ({ ...f, name: v }))} placeholder="홍길동" />
             <Input label="세례명" value={form.baptismal_name} onChangeText={(v) => setForm((f) => ({ ...f, baptismal_name: v }))} />
-            <Input label="전화번호" value={form.phone} onChangeText={(v) => setForm((f) => ({ ...f, phone: v }))} placeholder="010-0000-0000" keyboardType="phone-pad" />
+            <Input label="전화번호" value={form.phone} onChangeText={(v) => setForm((f) => ({ ...f, phone: v }))} placeholder="010-0000-0000" phoneFormat />
 
             <DatePickerField label="생년월일" value={form.birthday} onChange={(v) => setForm((f) => ({ ...f, birthday: v }))} mode="date" />
             <FeastDayPicker label="축일" value={form.feast_day} onChange={(v) => setForm((f) => ({ ...f, feast_day: v }))} />
