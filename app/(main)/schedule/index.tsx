@@ -22,7 +22,7 @@ export default function ScheduleScreen() {
   const { autoSelectDate, setAutoSelectDate } = useScheduleStore();
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [selectedDate, setSelectedDate] = useState('');
-  const [displayedMonth, setDisplayedMonth] = useState('');
+  const [displayedMonth, setDisplayedMonth] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [showYearMonthPicker, setShowYearMonthPicker] = useState(false);
   const [pickerYear, setPickerYear] = useState(new Date().getFullYear());
   const [pickerMonth, setPickerMonth] = useState(new Date().getMonth() + 1);
@@ -550,13 +550,19 @@ export default function ScheduleScreen() {
               markedDates={markedDates}
               markingType="multi-dot"
               renderHeader={() => {
-                const [year, month] = displayedMonth.split('-');
+                if (!displayedMonth) return null;
+                const parts = displayedMonth.split('-');
+                const year = parseInt(parts[0]) || new Date().getFullYear();
+                const month = parseInt(parts[1]) || new Date().getMonth() + 1;
                 const dateObj = new Date(displayedMonth);
+                if (isNaN(dateObj.getTime())) {
+                  return null;
+                }
                 return (
                   <TouchableOpacity
                     onPress={() => {
-                      setPickerYear(parseInt(year));
-                      setPickerMonth(parseInt(month));
+                      setPickerYear(year);
+                      setPickerMonth(month);
                       setShowYearMonthPicker(true);
                     }}
                     className="flex-row items-center justify-center py-3"
