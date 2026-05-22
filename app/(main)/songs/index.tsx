@@ -35,7 +35,7 @@ export default function SongsScreen() {
   const fetchSongs = useCallback(async () => {
     const { data } = await supabase
       .from('songs')
-      .select('*, creator:profiles!created_by(name), files:song_files(*)')
+      .select('id, title, description, youtube_url, youtube_links, youtube_titles, created_by, created_at, creator:profiles!created_by(name)')
       .order('created_at', { ascending: false });
     if (data) setSongs(data as unknown as Song[]);
   }, []);

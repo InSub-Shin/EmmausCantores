@@ -66,15 +66,28 @@ export default function ScheduleScreen() {
   const fetchSchedules = useCallback(async () => {
     const { data } = await supabase
       .from('schedules')
-      .select('*, creator:profiles!created_by(name), song:songs(*, files:song_files(*)), songs:schedule_songs(order, songs(*, files:song_files(*)))')
+      .select('id, title, description, start_at, end_at, location, created_by, created_at, creator:profiles!created_by(name)')
       .order('start_at');
     if (data) {
+      setSchedules(data as unknown as Schedule[]);
+    }
+  }, []);
+
+  // 일정 상세 정보 로드 (songs 포함)
+  const fetchScheduleDetail = useCallback(async (scheduleId: string) => {
+    const { data } = await supabase
+      .from('schedules')
+      .select('*, creator:profiles!created_by(name), song:songs(*, files:song_files(*)), songs:schedule_songs(order, songs(*, files:song_files(*)))')
+      .eq('id', scheduleId)
+      .single();
+    if (data) {
       // Transform schedule_songs relationship
-      const transformed = (data as any[]).map((s) => ({
-        ...s,
-        songs: (s.songs || []).sort((a: any, b: any) => (a.order || 0) - (b.order || 0)).map((ss: any) => ss.songs),
-      }));
-      setSchedules(transformed as unknown as Schedule[]);
+      const transformed = {
+        ...data,
+        songs: (data.songs || []).sort((a: any, b: any) => (a.order || 0) - (b.order || 0)).map((ss: any) => ss.songs),
+      };
+      setSelectedSchedule(transformed as unknown as Schedule);
+      return transformed;
     }
   }, []);
 
@@ -244,19 +257,22 @@ export default function ScheduleScreen() {
 
   const openScheduleDetail = async (schedule: Schedule) => {
     try {
-      setSelectedSchedule(schedule);
-      const startTime = new Date(schedule.start_at);
+      // 상세 정보 로드 (songs 포함)
+      const detail = await fetchScheduleDetail(schedule.id);
+      if (!detail) return;
+
+      const startTime = new Date(detail.start_at);
       const isAllDay = format(startTime, 'HH:mm') === '00:00';
       setAllDay(isAllDay);
       setEditForm({
-        title: schedule.title,
-        description: schedule.description || '',
-        start_at: schedule.start_at.slice(0, 10),
-        end_at: schedule.end_at?.slice(0, 10) || '',
-        location: schedule.location || '',
+        title: detail.title,
+        description: detail.description || '',
+        start_at: detail.start_at.slice(0, 10),
+        end_at: detail.end_at?.slice(0, 10) || '',
+        location: detail.location || '',
       });
       // 여러 특송 로드 (schedule_songs에서 로드된 songs 배열 사용)
-      const songs = schedule.songs && schedule.songs.length > 0 ? schedule.songs : (schedule.song ? [schedule.song] : []);
+      const songs = detail.songs && detail.songs.length > 0 ? detail.songs : (detail.song ? [detail.song] : []);
       setSelectedSongs(songs);
 
       // 해당 일정과 연동된 투표 찾기

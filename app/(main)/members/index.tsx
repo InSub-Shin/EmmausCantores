@@ -34,7 +34,10 @@ export default function MembersScreen() {
   const isExecutive = myProfile?.is_executive;
 
   const fetchMembers = useCallback(async () => {
-    const { data } = await supabase.from('profiles').select('*').eq('is_deleted', false).order('name');
+    const { data } = await supabase.from('profiles')
+      .select('id, name, baptismal_name, phone, birthday, feast_day, part, role, is_executive, is_deleted, profile_image')
+      .eq('is_deleted', false)
+      .order('name');
     if (data) setMembers(data as Profile[]);
   }, []);
 
