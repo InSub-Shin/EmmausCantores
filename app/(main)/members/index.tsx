@@ -136,8 +136,8 @@ export default function MembersScreen() {
                 </View>
                 <View className="flex-row gap-1.5">
                   {item.part && <Text className="text-xs text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full">{PART_LABELS[item.part]}</Text>}
-                  <Text className={`text-xs px-2 py-0.5 rounded-full ${item.is_executive ? 'text-amber-700 bg-amber-50' : 'text-gray-500 bg-gray-100'}`}>
-                    {ROLE_LABELS[item.role]}
+                  <Text className={`text-xs px-2 py-0.5 rounded-full font-medium ${item.role === 'leader' ? 'text-red-700 bg-red-50' : item.is_executive ? 'text-amber-700 bg-amber-50' : 'text-gray-500 bg-gray-100'}`}>
+                    {item.role === 'leader' ? '👑 ' : ''}{ROLE_LABELS[item.role]}
                   </Text>
                 </View>
               </View>
@@ -181,6 +181,11 @@ export default function MembersScreen() {
             </View>
 
             {/* 직책은 단원 추가 후 단장이 수정 시 변경 가능 — 기본값: 평단원 */}
+            <View className="p-3 bg-blue-50 rounded-lg border border-blue-200">
+              <Text className="text-xs text-blue-700">
+                💡 새로운 단원은 항상 '평단원'으로 추가됩니다. 직책은 단원 추가 후 단장이 개별 수정 화면에서 변경할 수 있습니다.
+              </Text>
+            </View>
           </ScrollView>
         </SafeAreaView>
       </Modal>
