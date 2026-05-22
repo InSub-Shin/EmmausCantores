@@ -1,8 +1,12 @@
 import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
+import { Platform } from 'react-native';
 import { supabase } from './supabase';
 
-WebBrowser.maybeCompleteAuthSession();
+// 웹에서는 maybeCompleteAuthSession 호출 필요 없음
+if (Platform.OS !== 'web') {
+  WebBrowser.maybeCompleteAuthSession();
+}
 
 export async function signInWithKakao() {
   const redirectTo = Linking.createURL('auth/callback');
@@ -11,7 +15,7 @@ export async function signInWithKakao() {
     provider: 'kakao',
     options: {
       redirectTo,
-      skipBrowserRedirect: true,
+      skipBrowserRedirect: Platform.OS === 'web' ? false : true,
       scopes: 'profile_nickname profile_image',
       queryParams: {
         prompt: 'login', // 매번 카카오 계정 선택 화면 강제 표시
@@ -21,7 +25,13 @@ export async function signInWithKakao() {
 
   if (error || !data.url) throw error ?? new Error('카카오 로그인 URL을 가져오지 못했습니다.');
 
-  // Custom Tab 으로 열기 — 카카오톡 앱으로 이동 시 dismissed 될 수 있음
+  // 웹 환경: 자동으로 리다이렉트 처리됨
+  if (Platform.OS === 'web') {
+    window.location.href = data.url;
+    return;
+  }
+
+  // 모바일: Custom Tab 으로 열기 — 카카오톡 앱으로 이동 시 dismissed 될 수 있음
   const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo, {
     showInRecents: true,
   });
