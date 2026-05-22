@@ -42,15 +42,16 @@ export default function HomeScreen() {
   // 미확인 투표 조회
   const fetchUnreadVotes = useCallback(async () => {
     try {
-      // 모든 투표 가져오기
+      // 최근 투표 가져오기 (화면에서 최대 3개만 표시)
       const { data: allVotes } = await supabase
         .from('votes')
-        .select(`*, items:vote_items(*, responses:vote_responses(user_id))`)
-        .order('created_at', { ascending: false });
+        .select(`id, title, ends_at, items:vote_items(responses:vote_responses(user_id))`)
+        .order('created_at', { ascending: false })
+        .limit(10);
 
       if (allVotes && profile) {
         // 사용자가 투표하지 않은 투표 필터링
-        const unvoted = allVotes.filter((vote) => {
+        const unvoted = allVotes.filter((vote: any) => {
           const hasVoted = vote.items?.some((item: any) =>
             item.responses?.some((r: any) => r.user_id === profile.id)
           );
@@ -68,7 +69,7 @@ export default function HomeScreen() {
     try {
       const { data: recentSongs } = await supabase
         .from('songs')
-        .select('*')
+        .select('id, title, description')
         .order('created_at', { ascending: false })
         .limit(5);
 
@@ -89,12 +90,22 @@ export default function HomeScreen() {
     const initialize = async () => {
       setLoading(true);
       await loadViewedSongs();
-      await fetchUnreadVotes();
-      await fetchUnreadSongs();
       setLoading(false);
     };
     initialize();
-  }, [loadViewedSongs, fetchUnreadVotes, fetchUnreadSongs]);
+  }, []);
+
+  // 프로필이 있을 때 미확인 투표 로드
+  useEffect(() => {
+    if (profile?.id) {
+      fetchUnreadVotes();
+    }
+  }, [profile?.id, fetchUnreadVotes]);
+
+  // viewedSongIds 변경 시 미확인 특송 로드
+  useEffect(() => {
+    fetchUnreadSongs();
+  }, [viewedSongIds, fetchUnreadSongs]);
 
   // 특송 확인 처리
   const markSongAsViewed = useCallback(async (songId: string) => {
