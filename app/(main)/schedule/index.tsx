@@ -1082,7 +1082,7 @@ export default function ScheduleScreen() {
                   : selectedSongDetail.youtube_url ? [selectedSongDetail.youtube_url] : []
                 ).map((url, idx) => (
                   <TouchableOpacity
-                    key={idx}
+                    key={`yt-${selectedSongDetail.id}-${idx}`}
                     onPress={() => Linking.openURL(url)}
                     className="flex-row items-center bg-red-50 rounded-xl px-3 py-2 mb-2"
                   >
@@ -1150,7 +1150,7 @@ export default function ScheduleScreen() {
 
             <Text className="text-sm font-medium text-gray-700 mb-2">투표 항목 (최소 2개)</Text>
             {voteItems.map((item, idx) => (
-              <View key={idx} className="flex-row items-center gap-2 mb-2">
+              <View key={`vote-item-create-${idx}`} className="flex-row items-center gap-2 mb-2">
                 <View className="flex-1">
                   <Input
                     value={item}
@@ -1229,10 +1229,14 @@ export default function ScheduleScreen() {
                   <Text className="text-xl font-bold text-gray-900 mb-2">{selectedVoteDetail.title}</Text>
                   {selectedVoteDetail.description && <Text className="text-gray-500 text-sm mb-3">{selectedVoteDetail.description}</Text>}
                   <View className="flex-row flex-wrap gap-2">
-                    {selectedVoteDetail.multiple_choice && <Text className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">복수선택</Text>}
-                    {voteIsExpired && <Text className="text-xs bg-gray-100 text-gray-500 px-2 py-1 rounded-full">종료됨</Text>}
+                    {selectedVoteDetail.multiple_choice && (
+                      <Text key="multiple" className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">복수선택</Text>
+                    )}
+                    {voteIsExpired && (
+                      <Text key="expired" className="text-xs bg-gray-100 text-gray-500 px-2 py-1 rounded-full">종료됨</Text>
+                    )}
                     {selectedVoteDetail.ends_at && (
-                      <Text className="text-xs bg-gray-100 text-gray-500 px-2 py-1 rounded-full">
+                      <Text key="deadline" className="text-xs bg-gray-100 text-gray-500 px-2 py-1 rounded-full">
                         ~{format(new Date(selectedVoteDetail.ends_at), 'M월 d일 HH:mm', { locale: ko })}
                       </Text>
                     )}
@@ -1317,8 +1321,9 @@ export default function ScheduleScreen() {
                 {voteEditItems.map((item, idx) => {
                   const hasResponses = selectedVoteDetail?.items?.[idx]?.responses && (selectedVoteDetail.items[idx].responses?.length ?? 0) > 0;
                   const responseCount = selectedVoteDetail?.items?.[idx]?.responses?.length ?? 0;
+                  const itemKey = `vote-item-edit-${selectedVoteDetail?.id}-${idx}`;
                   return (
-                    <View key={idx}>
+                    <View key={itemKey}>
                       {hasResponses && (
                         <Text className="text-xs text-red-500 mb-1 ml-1">
                           ⚠️ {responseCount}명이 투표했으므로 수정/삭제 불가
