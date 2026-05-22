@@ -31,16 +31,7 @@
     },
     "web": {
       "favicon": "./assets/favicon.png",
-      "bundler": "metro",
-      "name": "엠마우스 깐또레스",
-      "shortName": "깐또레스",
-      "description": "성가대를 위한 올인원 디지털 관리 플랫폼",
-      "scope": "/",
-      "startUrl": "/",
-      "display": "standalone",
-      "orientation": "portrait-primary",
-      "backgroundColor": "#ffffff",
-      "themeColor": "#4F46E5"
+      "bundler": "metro"
     },
     "plugins": [
       "expo-router",
