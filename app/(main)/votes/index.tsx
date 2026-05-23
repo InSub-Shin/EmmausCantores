@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { View, Text, FlatList, TouchableOpacity, RefreshControl, Modal, ScrollView, Alert, BackHandler } from 'react-native';
+import { View, Text, FlatList, TouchableOpacity, RefreshControl, Modal, ScrollView, Alert, BackHandler, TextInput } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { format } from 'date-fns';
@@ -8,7 +8,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/store/auth';
 import { useScheduleStore } from '@/store/schedule';
 import { useHomeNavigationStore } from '@/store/home-navigation';
-import { Vote, VoteItem, Profile } from '@/types';
+import { Vote, VoteItem, Profile, VoteComment } from '@/types';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -35,12 +35,28 @@ export default function VotesScreen() {
   const [editVoteItems, setEditVoteItems] = useState<string[]>(['', '']);
   const [savingEdit, setSavingEdit] = useState(false);
 
+  // 댓글
+  const [comments, setComments] = useState<VoteComment[]>([]);
+  const [commentText, setCommentText] = useState('');
+  const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
+  const [editCommentText, setEditCommentText] = useState('');
+  const [submittingComment, setSubmittingComment] = useState(false);
+
   const fetchVotes = useCallback(async () => {
     const { data } = await supabase
       .from('votes')
       .select(`id, title, description, is_anonymous, multiple_choice, ends_at, created_by, created_at, schedule_id, creator:profiles!created_by(name), items:vote_items(responses:vote_responses(user_id))`)
       .order('created_at', { ascending: false });
     if (data) setVotes(data as unknown as Vote[]);
+  }, []);
+
+  const fetchComments = useCallback(async (voteId: string) => {
+    const { data } = await supabase
+      .from('vote_comments')
+      .select('*, author:profiles!user_id(id, name)')
+      .eq('vote_id', voteId)
+      .order('created_at', { ascending: true });
+    if (data) setComments(data as VoteComment[]);
   }, []);
 
   const fetchVoteDetail = useCallback(async (voteId: string) => {
@@ -92,6 +108,9 @@ export default function VotesScreen() {
       setIsEditing(false);
       setEditForm({ title: '', description: '' });
       setEditVoteItems(['', '']);
+      setCommentText('');
+      setEditingCommentId(null);
+      fetchComments(vote.id);
       fetchVoteDetail(vote.id).then((fullVote) => {
         if (fullVote && profile) {
           const myVotes = fullVote.items?.flatMap((i) =>
@@ -117,7 +136,9 @@ export default function VotesScreen() {
     setIsEditing(false);
     setEditForm({ title: '', description: '' });
     setEditVoteItems(['', '']);
-    const fullVote = await fetchVoteDetail(vote.id);
+    setCommentText('');
+    setEditingCommentId(null);
+    const [fullVote] = await Promise.all([fetchVoteDetail(vote.id), fetchComments(vote.id)]);
     if (fullVote && profile) {
       const myVotes = fullVote.items?.flatMap((i) =>
         i.responses?.some((r) => r.user_id === profile.id) ? [i.id] : []
@@ -243,6 +264,49 @@ export default function VotesScreen() {
     setNotifying(false);
     setSelectedNonVoters(new Set());
     setShowNonVotersModal(false);
+  };
+
+  const handleAddComment = async () => {
+    if (!selectedVote || !profile || !commentText.trim()) return;
+    setSubmittingComment(true);
+    const { error } = await supabase.from('vote_comments').insert({
+      vote_id: selectedVote.id,
+      user_id: profile.id,
+      content: commentText.trim(),
+    });
+    if (!error) {
+      setCommentText('');
+      await fetchComments(selectedVote.id);
+    }
+    setSubmittingComment(false);
+  };
+
+  const handleSaveEditComment = async () => {
+    if (!editingCommentId || !editCommentText.trim() || !selectedVote) return;
+    setSubmittingComment(true);
+    const { error } = await supabase
+      .from('vote_comments')
+      .update({ content: editCommentText.trim(), updated_at: new Date().toISOString() })
+      .eq('id', editingCommentId);
+    if (!error) {
+      setEditingCommentId(null);
+      await fetchComments(selectedVote.id);
+    }
+    setSubmittingComment(false);
+  };
+
+  const handleDeleteComment = (commentId: string) => {
+    Alert.alert('댓글 삭제', '이 댓글을 삭제할까요?', [
+      { text: '취소', style: 'cancel' },
+      {
+        text: '삭제',
+        style: 'destructive',
+        onPress: async () => {
+          await supabase.from('vote_comments').delete().eq('id', commentId);
+          if (selectedVote) await fetchComments(selectedVote.id);
+        },
+      },
+    ]);
   };
 
   const toggleSelect = (itemId: string) => {
@@ -535,6 +599,91 @@ export default function VotesScreen() {
                     )}
                   </View>
                 )}
+
+                {/* 댓글 */}
+                <View className="mt-6">
+                  <Text className="text-base font-semibold text-gray-800 mb-3">
+                    💬 댓글 {comments.length > 0 ? `(${comments.length})` : ''}
+                  </Text>
+
+                  {comments.length === 0 && (
+                    <Text className="text-sm text-gray-400 text-center py-3">첫 댓글을 남겨보세요</Text>
+                  )}
+
+                  {comments.map((comment) => {
+                    const isMine = comment.user_id === profile?.id;
+                    const canDelete = isMine || profile?.is_executive;
+                    const isEditingThis = editingCommentId === comment.id;
+
+                    return (
+                      <View key={comment.id} className="mb-3 bg-gray-50 rounded-xl p-3">
+                        <View className="flex-row items-center justify-between mb-1">
+                          <Text className="text-xs font-semibold text-gray-700">
+                            {comment.author?.name ?? '알 수 없음'}
+                          </Text>
+                          <View className="flex-row items-center gap-3">
+                            <Text className="text-xs text-gray-400">
+                              {format(new Date(comment.created_at), 'M/d HH:mm', { locale: ko })}
+                            </Text>
+                            {isMine && !isEditingThis && (
+                              <TouchableOpacity onPress={() => { setEditingCommentId(comment.id); setEditCommentText(comment.content); }}>
+                                <Text className="text-xs text-indigo-500">수정</Text>
+                              </TouchableOpacity>
+                            )}
+                            {canDelete && !isEditingThis && (
+                              <TouchableOpacity onPress={() => handleDeleteComment(comment.id)}>
+                                <Text className="text-xs text-red-400">삭제</Text>
+                              </TouchableOpacity>
+                            )}
+                          </View>
+                        </View>
+
+                        {isEditingThis ? (
+                          <View>
+                            <TextInput
+                              value={editCommentText}
+                              onChangeText={setEditCommentText}
+                              multiline
+                              autoFocus
+                              className="text-sm text-gray-800 bg-white border border-indigo-300 rounded-lg px-3 py-2 mb-2"
+                              style={{ minHeight: 60, textAlignVertical: 'top' }}
+                            />
+                            <View className="flex-row gap-2 justify-end">
+                              <TouchableOpacity onPress={() => setEditingCommentId(null)}>
+                                <Text className="text-xs text-gray-500">취소</Text>
+                              </TouchableOpacity>
+                              <TouchableOpacity onPress={handleSaveEditComment} disabled={submittingComment}>
+                                <Text className="text-xs text-indigo-600 font-semibold">저장</Text>
+                              </TouchableOpacity>
+                            </View>
+                          </View>
+                        ) : (
+                          <Text className="text-sm text-gray-800">{comment.content}</Text>
+                        )}
+                      </View>
+                    );
+                  })}
+
+                  {/* 새 댓글 입력 */}
+                  <View className="flex-row gap-2 mt-2 items-end">
+                    <TextInput
+                      value={commentText}
+                      onChangeText={setCommentText}
+                      placeholder="댓글 입력..."
+                      multiline
+                      className="flex-1 bg-gray-100 rounded-xl px-3 py-2 text-sm text-gray-900"
+                      style={{ minHeight: 40, maxHeight: 100, textAlignVertical: 'top' }}
+                      placeholderTextColor="#9ca3af"
+                    />
+                    <TouchableOpacity
+                      onPress={handleAddComment}
+                      disabled={!commentText.trim() || submittingComment}
+                      className={`px-4 py-2 rounded-xl ${commentText.trim() ? 'bg-indigo-600' : 'bg-gray-200'}`}
+                    >
+                      <Text className={`text-sm font-semibold ${commentText.trim() ? 'text-white' : 'text-gray-400'}`}>등록</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
               </>
             ) : selectedVote && isEditing ? (
               <>

@@ -81,6 +81,16 @@ export interface VoteItem {
   responses?: VoteResponse[];
 }
 
+export interface VoteComment {
+  id: string;
+  vote_id: string;
+  user_id: string;
+  content: string;
+  created_at: string;
+  updated_at: string;
+  author?: Pick<Profile, 'id' | 'name'>;
+}
+
 export interface VoteResponse {
   id: string;
   vote_id: string;
