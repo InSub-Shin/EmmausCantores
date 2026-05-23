@@ -87,25 +87,30 @@ export default function ProfileScreen() {
       </View>
 
       <ScrollView contentContainerStyle={{ padding: 20 }} keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets>
-        {/* 프로필 사진 */}
-        <TouchableOpacity onPress={handlePickImage} className="items-center mb-6">
-          <View className="w-24 h-24 bg-indigo-100 rounded-full items-center justify-center mb-2">
-            <Text className="text-4xl">{profile.part === 'soprano' || profile.part === 'alto' ? '👩' : '👨'}</Text>
-          </View>
-          <Text className="text-indigo-600 text-sm">사진 변경</Text>
-        </TouchableOpacity>
-
-        {/* 헤더 카드 */}
-        <Card className="mb-4 bg-indigo-600 items-center">
-          <Text className="text-white text-xl font-bold">{profile.name}</Text>
-          {profile.baptismal_name && (
-            <Text className="text-base font-bold mt-1">{profile.baptismal_name}</Text>
-          )}
+        {/* 상단 프로필 뷰 */}
+        <View className="items-center mb-4 bg-white rounded-2xl p-5">
+          <TouchableOpacity onPress={handlePickImage} className="items-center mb-3">
+            <View className="w-20 h-20 bg-indigo-400 rounded-full items-center justify-center">
+              <Text className="text-4xl">
+                {(editing ? form.part : profile.part) === 'soprano' || (editing ? form.part : profile.part) === 'alto' ? '👩' : '👨'}
+              </Text>
+            </View>
+            <Text className="text-indigo-600 text-xs mt-1">사진 변경</Text>
+          </TouchableOpacity>
+          <Text className="text-gray-900 text-base font-medium">
+            {(editing ? form.baptismal_name : profile.baptismal_name) || '-'}
+          </Text>
           <View className="flex-row gap-2 mt-3">
-            {profile.part && <View className="bg-indigo-500 rounded-full px-3 py-1"><Text className="text-white text-xs">{PART_LABELS[profile.part]}</Text></View>}
-            <View className="bg-indigo-500 rounded-full px-3 py-1"><Text className="text-white text-xs">{ROLE_LABELS[profile.role]}</Text></View>
+            {(editing ? form.part : profile.part) && (
+              <View className="bg-indigo-500 rounded-full px-3 py-1">
+                <Text className="text-white text-xs">{PART_LABELS[(editing ? form.part : profile.part)!]}</Text>
+              </View>
+            )}
+            <View className={`rounded-full px-3 py-1 ${profile.is_executive ? 'bg-amber-500' : 'bg-indigo-500'}`}>
+              <Text className="text-white text-xs">{ROLE_LABELS[profile.role]}</Text>
+            </View>
           </View>
-        </Card>
+        </View>
 
         {editing ? (
           <Card>
@@ -148,6 +153,7 @@ export default function ProfileScreen() {
         ) : (
           <Card>
             {[
+              { label: '이름', value: profile.name },
               { label: '세례명', value: profile.baptismal_name },
               { label: '전화번호', value: profile.phone ? formatPhoneNumber(profile.phone) : null },
               { label: '생년월일', value: profile.birthday?.replace(/(\d{4})-(\d{2})-(\d{2})/, '$1년 $2월 $3일') },
