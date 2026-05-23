@@ -382,7 +382,15 @@ export default function VotesScreen() {
       />
 
       {/* 투표 상세 모달 */}
-      <Modal visible={showVoteDetail} animationType="slide" presentationStyle="pageSheet">
+      <Modal
+        visible={showVoteDetail}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => {
+          if (isEditing) { setIsEditing(false); }
+          else { setShowVoteDetail(false); }
+        }}
+      >
         <SafeAreaView className="flex-1 bg-white">
           <View className="flex-row items-center justify-between px-5 py-4 border-b border-gray-100">
             <TouchableOpacity onPress={() => { setShowVoteDetail(false); setIsEditing(false); }}>
@@ -563,7 +571,7 @@ export default function VotesScreen() {
       </Modal>
 
       {/* 참여자 현황 모달 */}
-      <Modal visible={showParticipants} animationType="slide" presentationStyle="pageSheet">
+      <Modal visible={showParticipants} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowParticipants(false)}>
         <SafeAreaView className="flex-1 bg-gray-50">
           <View className="flex-row items-center justify-between px-5 py-4 border-b border-gray-100">
             <TouchableOpacity onPress={() => setShowParticipants(false)}>
@@ -603,7 +611,7 @@ export default function VotesScreen() {
       </Modal>
 
       {/* 미참여자 선택 모달 */}
-      <Modal visible={showNonVotersModal} animationType="slide" presentationStyle="pageSheet">
+      <Modal visible={showNonVotersModal} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => { setShowNonVotersModal(false); setSelectedNonVoters(new Set()); }}>
         <SafeAreaView className="flex-1 bg-gray-50">
           <View className="flex-row items-center justify-between px-5 py-4 border-b border-gray-100">
             <TouchableOpacity onPress={() => { setShowNonVotersModal(false); setSelectedNonVoters(new Set()); }}>

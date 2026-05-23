@@ -441,7 +441,7 @@ export default function VoteDetailScreen() {
       </ScrollView>
 
       {/* 참여자 현황 모달 */}
-      <Modal visible={showParticipants} animationType="slide" presentationStyle="pageSheet">
+      <Modal visible={showParticipants} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowParticipants(false)}>
         <SafeAreaView className="flex-1 bg-white">
           <View className="flex-row items-center justify-between px-5 py-4 border-b border-gray-100">
             <TouchableOpacity onPress={() => setShowParticipants(false)}>

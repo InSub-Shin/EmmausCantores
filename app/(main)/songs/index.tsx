@@ -295,7 +295,7 @@ export default function SongsScreen() {
       />
 
       {/* ── 특송 추가 모달 ── */}
-      <Modal visible={showCreate} animationType="slide" presentationStyle="pageSheet">
+      <Modal visible={showCreate} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowCreate(false)}>
         <SafeAreaView className="flex-1 bg-white">
           <View className="flex-row items-center justify-between px-5 py-4 border-b border-gray-100">
             <TouchableOpacity onPress={() => setShowCreate(false)}><Text className="text-gray-500">취소</Text></TouchableOpacity>
@@ -395,7 +395,15 @@ export default function SongsScreen() {
       </Modal>
 
       {/* ── 특송 상세보기 모달 ── */}
-      <Modal visible={showSongDetail} animationType="slide" presentationStyle="pageSheet">
+      <Modal
+        visible={showSongDetail}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => {
+          if (editingSong) { setEditingSong(false); setEditFiles([]); setEditFilesToDelete([]); }
+          else { setShowSongDetail(false); }
+        }}
+      >
         <SafeAreaView className="flex-1 bg-white">
           <View className="flex-row items-center justify-between px-5 py-4 border-b border-gray-100">
             <TouchableOpacity onPress={() => { setShowSongDetail(false); setEditingSong(false); }}>

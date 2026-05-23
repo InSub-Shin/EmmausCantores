@@ -717,7 +717,7 @@ export default function ScheduleScreen() {
       </ScrollView>
 
       {/* 일정 추가 모달 */}
-      <Modal visible={showCreate} animationType="slide" presentationStyle="pageSheet">
+      <Modal visible={showCreate} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowCreate(false)}>
         <SafeAreaView className="flex-1 bg-white">
           <View className="flex-row items-center justify-between px-5 py-4 border-b border-gray-100">
             <TouchableOpacity onPress={() => setShowCreate(false)}>
@@ -826,7 +826,7 @@ export default function ScheduleScreen() {
         </SafeAreaView>
       </Modal>
       {/* 특송 선택 모달 */}
-      <Modal visible={showSongPicker} animationType="slide" presentationStyle="pageSheet">
+      <Modal visible={showSongPicker} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => { setSelectedSongs(tempSelectedSongs); setShowSongPicker(false); }}>
         <SafeAreaView className="flex-1 bg-white">
           <View className="flex-row items-center justify-between px-5 py-4 border-b border-gray-100">
             <TouchableOpacity onPress={() => { setSelectedSongs(tempSelectedSongs); setShowSongPicker(false); }}>
@@ -875,7 +875,15 @@ export default function ScheduleScreen() {
       </Modal>
 
       {/* 일정 상세보기 모달 */}
-      <Modal visible={showScheduleDetail} animationType="slide" presentationStyle="pageSheet">
+      <Modal
+        visible={showScheduleDetail}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => {
+          if (editingSchedule) { setEditingSchedule(false); }
+          else { setShowScheduleDetail(false); }
+        }}
+      >
         <SafeAreaView className="flex-1 bg-white">
           <View className="flex-row items-center justify-between px-5 py-4 border-b border-gray-100">
             <TouchableOpacity onPress={() => { setShowScheduleDetail(false); setEditingSchedule(false); }}>
@@ -1107,7 +1115,7 @@ export default function ScheduleScreen() {
 
       {/* 특송 상세보기 모달 */}
       {selectedSongDetail && (
-        <Modal visible={showSongDetail} animationType="slide" presentationStyle="pageSheet">
+        <Modal visible={showSongDetail} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => { setShowSongDetail(false); setSelectedSongDetail(null); }}>
           <SafeAreaView className="flex-1 bg-white">
             <View className="flex-row items-center justify-between px-5 py-4 border-b border-gray-100">
               <TouchableOpacity onPress={() => { setShowSongDetail(false); setSelectedSongDetail(null); }}>
@@ -1163,7 +1171,7 @@ export default function ScheduleScreen() {
       )}
 
       {/* 투표 생성 모달 */}
-      <Modal visible={showCreateVote} animationType="slide" presentationStyle="pageSheet">
+      <Modal visible={showCreateVote} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowCreateVote(false)}>
         <SafeAreaView className="flex-1 bg-white">
           <View className="flex-row items-center justify-between px-5 py-4 border-b border-gray-100">
             <TouchableOpacity onPress={() => setShowCreateVote(false)}>
@@ -1242,7 +1250,15 @@ export default function ScheduleScreen() {
       </Modal>
 
       {/* 투표 상세 모달 */}
-      <Modal visible={showVoteDetailModal} animationType="slide" presentationStyle="pageSheet">
+      <Modal
+        visible={showVoteDetailModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => {
+          if (voteIsEditing) { setVoteIsEditing(false); }
+          else { setShowVoteDetailModal(false); }
+        }}
+      >
         <SafeAreaView className="flex-1 bg-white">
           <View className="flex-row items-center justify-between px-5 py-4 border-b border-gray-100">
             <TouchableOpacity onPress={() => { setShowVoteDetailModal(false); setVoteIsEditing(false); }}>
@@ -1414,7 +1430,7 @@ export default function ScheduleScreen() {
       </Modal>
 
       {/* 참여자 현황 모달 */}
-      <Modal visible={voteShowParticipants} animationType="slide" presentationStyle="pageSheet">
+      <Modal visible={voteShowParticipants} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setVoteShowParticipants(false)}>
         <SafeAreaView className="flex-1 bg-gray-50">
           <View className="flex-row items-center justify-between px-5 py-4 border-b border-gray-100">
             <TouchableOpacity onPress={() => setVoteShowParticipants(false)}>
@@ -1454,7 +1470,7 @@ export default function ScheduleScreen() {
       </Modal>
 
       {/* 미참여자 선택 모달 */}
-      <Modal visible={voteShowNonVotersModal} animationType="slide" presentationStyle="pageSheet">
+      <Modal visible={voteShowNonVotersModal} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => { setVoteShowNonVotersModal(false); setVoteSelectedNonVoters(new Set()); }}>
         <SafeAreaView className="flex-1 bg-gray-50">
           <View className="flex-row items-center justify-between px-5 py-4 border-b border-gray-100">
             <TouchableOpacity onPress={() => { setVoteShowNonVotersModal(false); setVoteSelectedNonVoters(new Set()); }}>
@@ -1523,7 +1539,7 @@ export default function ScheduleScreen() {
       </Modal>
 
       {/* 년/월 선택 피커 모달 */}
-      <Modal visible={showYearMonthPicker} transparent animationType="slide">
+      <Modal visible={showYearMonthPicker} transparent animationType="slide" onRequestClose={() => setShowYearMonthPicker(false)}>
         <View className="flex-1 justify-end bg-black/40">
           <View className="bg-white rounded-t-3xl pb-8">
             {/* 헤더 */}

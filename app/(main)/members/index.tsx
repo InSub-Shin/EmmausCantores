@@ -167,7 +167,7 @@ export default function MembersScreen() {
       />
 
       {/* 단원 추가 모달 */}
-      <Modal visible={showAdd} animationType="slide" presentationStyle="pageSheet">
+      <Modal visible={showAdd} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowAdd(false)}>
         <SafeAreaView className="flex-1 bg-white">
           <View className="flex-row items-center justify-between px-5 py-4 border-b border-gray-100">
             <TouchableOpacity onPress={() => setShowAdd(false)}><Text className="text-gray-500">취소</Text></TouchableOpacity>
