@@ -376,8 +376,8 @@ export default function ScheduleScreen() {
       setEditForm({
         title: detail.title,
         description: detail.description || '',
-        start_at: toLocalDateStr(detail.start_at),
-        end_at: detail.end_at ? toLocalDateStr(detail.end_at) : '',
+        start_at: isAllDay ? toLocalDateStr(detail.start_at) : detail.start_at,
+        end_at: isAllDay ? (detail.end_at ? toLocalDateStr(detail.end_at) : '') : (detail.end_at || ''),
         location: detail.location || '',
       });
       // 여러 특송 로드 (schedule_songs에서 로드된 songs 배열 사용)
