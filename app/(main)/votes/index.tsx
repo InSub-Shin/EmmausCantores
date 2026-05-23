@@ -53,12 +53,18 @@ export default function VotesScreen() {
     return data ? (data as unknown as Vote) : null;
   }, []);
 
+  // 화면 포커스 시 투표 목록 새로고침 (투표 생성 후 돌아올 때 포함)
+  useFocusEffect(
+    useCallback(() => {
+      fetchVotes();
+    }, [fetchVotes])
+  );
+
   useEffect(() => {
-    fetchVotes();
     supabase.from('profiles').select('*').then(({ data }) => {
       if (data) setAllMembers(data as Profile[]);
     });
-  }, []); // 초기 로드만
+  }, []);
 
   // 안드로이드 뒤로가기: 모달 순서대로 닫기
   useFocusEffect(
@@ -149,10 +155,33 @@ export default function VotesScreen() {
       ?.map((item) => item.label) ?? [];
   };
 
-  const handleVote = async () => {
-    if (!selectedVote || !profile || selected.length === 0) return;
+  const withdrawVote = async () => {
+    if (!selectedVote || !profile) return;
     setSubmitting(true);
+    const allItemIds = selectedVote.items?.map((i) => i.id).filter(Boolean) ?? [];
+    if (allItemIds.length > 0) {
+      await supabase.from('vote_responses').delete().in('vote_item_id', allItemIds).eq('user_id', profile.id);
+    }
+    const freshVote = await fetchVoteDetail(selectedVote.id);
+    if (freshVote) setSelected([]);
+    await fetchVotes();
+    setSubmitting(false);
+  };
 
+  const handleVote = async () => {
+    if (!selectedVote || !profile) return;
+
+    // 선택 항목이 없고 이미 투표한 경우 → 투표 취소(미참여 처리)
+    if (selected.length === 0) {
+      if (!hasVotedDetail) return;
+      Alert.alert('투표 취소', '투표를 취소하고 미참여 상태로 변경할까요?', [
+        { text: '아니오', style: 'cancel' },
+        { text: '취소하기', style: 'destructive', onPress: withdrawVote },
+      ]);
+      return;
+    }
+
+    setSubmitting(true);
     try {
       // vote_item_id 기준으로 기존 응답 삭제 (더 안전한 방식)
       const allItemIds = selectedVote.items?.map((i) => i.id).filter(Boolean) ?? [];
@@ -176,7 +205,6 @@ export default function VotesScreen() {
         console.error('Vote insert error:', JSON.stringify(error));
         Alert.alert('오류', `투표에 실패했습니다.\n${error.message}`);
       } else {
-        // 최신 데이터로 갱신 후 내가 투표한 항목을 selected에 반영
         const freshVote = await fetchVoteDetail(selectedVote.id);
         if (freshVote && profile) {
           const myVotes = freshVote.items?.flatMap((i) =>
@@ -184,6 +212,7 @@ export default function VotesScreen() {
           ) ?? [];
           setSelected(myVotes);
         }
+        await fetchVotes();
       }
     } catch (err) {
       console.error('Vote unexpected error:', err);
@@ -486,9 +515,11 @@ export default function VotesScreen() {
                 {!isExpired && (
                   <View className="flex-row gap-2 mt-5">
                     <Button
-                      label={hasVotedDetail ? '재투표' : '투표하기'}
+                      label={selected.length === 0 && hasVotedDetail ? '투표 취소' : hasVotedDetail ? '재투표' : '투표하기'}
                       onPress={handleVote}
                       loading={submitting}
+                      disabled={selected.length === 0 && !hasVotedDetail}
+                      variant={selected.length === 0 && hasVotedDetail ? 'outline' : 'primary'}
                       className="flex-1"
                     />
                     {canNotifyNonVoters && nonVoters.length > 0 && (
