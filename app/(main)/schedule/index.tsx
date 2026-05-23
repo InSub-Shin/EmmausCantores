@@ -66,10 +66,15 @@ export default function ScheduleScreen() {
   const fetchSchedules = useCallback(async () => {
     const { data } = await supabase
       .from('schedules')
-      .select('id, title, description, start_at, end_at, location, created_by, created_at, creator:profiles!created_by(name), songs:schedule_songs(songs(id, title))')
+      .select('id, title, description, start_at, end_at, location, created_by, created_at, creator:profiles!created_by(name), songs:schedule_songs(songs!song_id(id, title))')
       .order('start_at');
     if (data) {
-      setSchedules(data as unknown as Schedule[]);
+      // schedule_songs 관계를 song 객체 배열로 변환: [{songs: {id,title}}] → [{id,title}]
+      const transformed = data.map((s: any) => ({
+        ...s,
+        songs: (s.songs || []).map((ss: any) => ss.songs).filter(Boolean),
+      }));
+      setSchedules(transformed as unknown as Schedule[]);
     }
   }, []);
 
