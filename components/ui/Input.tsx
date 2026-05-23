@@ -29,10 +29,8 @@ export function formatPhoneNumber(phone: string): string {
 export function Input({ label, error, className, phoneFormat, onChangeText, value, ...props }: InputProps) {
   const handleChangeText = (text: string) => {
     if (phoneFormat) {
-      // 숫자만 추출
-      const cleaned = extractPhoneNumber(text);
-      // 숫자만 전달 (저장할 때 사용)
-      onChangeText?.(cleaned);
+      const formatted = formatPhoneNumber(extractPhoneNumber(text));
+      onChangeText?.(formatted);
     } else {
       onChangeText?.(text);
     }
@@ -44,7 +42,8 @@ export function Input({ label, error, className, phoneFormat, onChangeText, valu
     <View className="mb-4">
       {label && <Text className="text-sm font-medium text-gray-700 mb-1">{label}</Text>}
       <TextInput
-        className={`border ${error ? 'border-red-400' : 'border-gray-300'} rounded-xl px-4 py-3 text-base text-gray-900 bg-white ${className ?? ''}`}
+        className={`border ${error ? 'border-red-400' : 'border-gray-300'} rounded-xl px-4 py-3 text-base bg-white ${className ?? ''}`}
+        style={{ color: '#111827' }}
         placeholderTextColor="#9ca3af"
         value={displayValue as string}
         onChangeText={handleChangeText}
