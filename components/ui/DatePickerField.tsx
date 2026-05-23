@@ -8,15 +8,17 @@ interface Props {
   onChange: (v: string) => void;
   mode?: 'date' | 'feastday';
   placeholder?: string;
+  defaultValue?: string; // 값이 없을 때 피커 기본 날짜
 }
 
-export function DatePickerField({ label, value, onChange, mode = 'date', placeholder }: Props) {
+export function DatePickerField({ label, value, onChange, mode = 'date', placeholder, defaultValue }: Props) {
   const [show, setShow] = useState(false);
 
   const toDate = () => {
-    if (!value) return new Date();
-    if (mode === 'feastday') return new Date(`2000-${value}`);
-    return new Date(value);
+    const base = value || defaultValue;
+    if (!base) return new Date();
+    if (mode === 'feastday') return new Date(`2000-${base}`);
+    return new Date(base);
   };
 
   const display = () => {

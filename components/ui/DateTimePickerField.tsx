@@ -7,14 +7,15 @@ interface Props {
   value: string;   // ISO string or ''
   onChange: (v: string) => void;
   placeholder?: string;
+  defaultValue?: string; // 값이 없을 때 피커 기본 날짜
 }
 
-export function DateTimePickerField({ label, value, onChange, placeholder }: Props) {
+export function DateTimePickerField({ label, value, onChange, placeholder, defaultValue }: Props) {
   const [showDate, setShowDate] = useState(false);
   const [showTime, setShowTime] = useState(false);
   const [tempDate, setTempDate] = useState<Date | null>(null);
 
-  const toDate = () => (value ? new Date(value) : new Date());
+  const toDate = () => (value ? new Date(value) : defaultValue ? new Date(defaultValue) : new Date());
 
   const display = () => {
     if (!value) return placeholder ?? '날짜/시간 선택';

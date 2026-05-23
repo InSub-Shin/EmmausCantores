@@ -3,7 +3,7 @@ import { View, Text, ScrollView, FlatList, TouchableOpacity, Alert, Modal, Linki
 import { router, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Calendar, DateData } from 'react-native-calendars';
-import { format, parse, setDate } from 'date-fns';
+import { format, parse } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import * as Crypto from 'expo-crypto';
 import { supabase } from '@/lib/supabase';
@@ -16,6 +16,9 @@ import { Input } from '@/components/ui/Input';
 import { DatePickerField } from '@/components/ui/DatePickerField';
 import { DateTimePickerField } from '@/components/ui/DateTimePickerField';
 import { sendPushToUsers } from '@/lib/notifications';
+
+// ISO 문자열을 로컬 날짜 YYYY-MM-DD로 변환 (UTC 슬라이스 시 한국 날짜 오차 방지)
+const toLocalDateStr = (iso: string) => format(new Date(iso), 'yyyy-MM-dd');
 
 export default function ScheduleScreen() {
   const { profile } = useAuthStore();
@@ -207,7 +210,7 @@ export default function ScheduleScreen() {
   const markedDates = schedules.reduce<Record<string, { dots: { color: string }[]; selected?: boolean; selectedColor?: string }>>((acc, s) => {
     if (!s.start_at) return acc;
     try {
-      const dateKey = s.start_at.slice(0, 10);
+      const dateKey = toLocalDateStr(s.start_at);
       if (!acc[dateKey]) acc[dateKey] = { dots: [] };
       acc[dateKey].dots = [...(acc[dateKey].dots ?? []), { color: '#4f46e5' }];
     } catch (e) {
@@ -236,13 +239,16 @@ export default function ScheduleScreen() {
   }
 
   // 선택된 날짜의 일정·생일·축일
-  const daySchedules = selectedDate ? schedules.filter((s) => s.start_at && s.start_at.slice(0, 10) === selectedDate) : [];
+  const daySchedules = selectedDate ? schedules.filter((s) => s.start_at && toLocalDateStr(s.start_at) === selectedDate) : [];
   const dayBirthdays = selectedDate ? (birthdayMap[selectedDate] ?? []) : [];
   const dayFeastDays = selectedDate ? (feastDayMap[selectedDate] ?? []) : [];
 
   const handleCreate = async () => {
     if (!form.title.trim() || !form.start_at) {
       Alert.alert('입력 오류', '제목과 날짜를 선택해주세요.'); return;
+    }
+    if (form.end_at && form.end_at < form.start_at) {
+      Alert.alert('입력 오류', '종료 날짜는 시작 날짜보다 같거나 커야 합니다.'); return;
     }
     setSaving(true);
 
@@ -310,6 +316,10 @@ export default function ScheduleScreen() {
       Alert.alert('입력 오류', '제목과 날짜를 선택해주세요.');
       return;
     }
+    if (editForm.end_at && editForm.end_at < editForm.start_at) {
+      Alert.alert('입력 오류', '종료 날짜는 시작 날짜보다 같거나 커야 합니다.');
+      return;
+    }
     setSaving(true);
 
     const startAt = allDay
@@ -366,8 +376,8 @@ export default function ScheduleScreen() {
       setEditForm({
         title: detail.title,
         description: detail.description || '',
-        start_at: detail.start_at.slice(0, 10),
-        end_at: detail.end_at?.slice(0, 10) || '',
+        start_at: toLocalDateStr(detail.start_at),
+        end_at: detail.end_at ? toLocalDateStr(detail.end_at) : '',
         location: detail.location || '',
       });
       // 여러 특송 로드 (schedule_songs에서 로드된 songs 배열 사용)
@@ -771,7 +781,7 @@ export default function ScheduleScreen() {
                     <Text className="text-base font-semibold text-gray-900">{s.title}</Text>
                     {format(new Date(s.start_at), 'HH:mm') === '00:00' ? (
                       <Text className="text-xs text-indigo-400 mt-0.5">
-                        {s.end_at && s.end_at.slice(0, 10) !== s.start_at.slice(0, 10)
+                        {s.end_at && toLocalDateStr(s.end_at) !== toLocalDateStr(s.start_at)
                           ? `${format(new Date(s.start_at), 'M월 d일')} ~ ${format(new Date(s.end_at), 'M월 d일')}`
                           : '하루종일'}
                       </Text>
@@ -857,6 +867,7 @@ export default function ScheduleScreen() {
                   onChange={(v) => setForm((f) => ({ ...f, end_at: v }))}
                   mode="date"
                   placeholder="하루짜리면 비워두세요"
+                  defaultValue={form.start_at}
                 />
               </>
             ) : (
@@ -871,6 +882,7 @@ export default function ScheduleScreen() {
                   value={form.end_at}
                   onChange={(v) => setForm((f) => ({ ...f, end_at: v }))}
                   placeholder="종료 시간 선택"
+                  defaultValue={form.start_at}
                 />
               </>
             )}
@@ -1012,7 +1024,7 @@ export default function ScheduleScreen() {
                     <>
                       {format(new Date(selectedSchedule.start_at), 'HH:mm') === '00:00' ? (
                         <Text className="text-indigo-600 font-medium text-center">
-                          {selectedSchedule.end_at && selectedSchedule.end_at.slice(0, 10) !== selectedSchedule.start_at.slice(0, 10)
+                          {selectedSchedule.end_at && toLocalDateStr(selectedSchedule.end_at) !== toLocalDateStr(selectedSchedule.start_at)
                             ? `${format(new Date(selectedSchedule.start_at), 'M월 d일')} ~ ${format(new Date(selectedSchedule.end_at), 'M월 d일')}`
                             : `${format(new Date(selectedSchedule.start_at), 'M월 d일')}`}
                           · 하루종일
@@ -1130,6 +1142,7 @@ export default function ScheduleScreen() {
                     onChange={(v) => setEditForm((f) => ({ ...f, end_at: v }))}
                     mode="date"
                     placeholder="하루짜리면 비워두세요"
+                    defaultValue={editForm.start_at}
                   />
                 </>
               ) : (
@@ -1143,6 +1156,7 @@ export default function ScheduleScreen() {
                     label="종료일시 (선택)"
                     value={editForm.end_at}
                     onChange={(v) => setEditForm((f) => ({ ...f, end_at: v }))}
+                    defaultValue={editForm.start_at}
                   />
                 </>
               )}
