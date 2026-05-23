@@ -65,7 +65,11 @@ export default function VotesScreen() {
       .select(`*, creator:profiles!created_by(name), items:vote_items(*, responses:vote_responses(*, profile:profiles(id, name, part))), schedule:schedules(id, title, start_at)`)
       .eq('id', voteId)
       .single();
-    if (data) setSelectedVote(data as unknown as Vote);
+    if (data) {
+      const vote = data as unknown as Vote;
+      if (vote.items) vote.items = [...vote.items].sort((a, b) => a.order_index - b.order_index);
+      setSelectedVote(vote);
+    }
     return data ? (data as unknown as Vote) : null;
   }, []);
 
