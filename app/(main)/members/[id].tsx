@@ -202,6 +202,9 @@ export default function MemberDetailScreen() {
         ) : (
           <Card>
             {[
+              { label: '세례명', value: member.baptismal_name ?? null },
+              { label: '파트', value: member.part ? PART_LABELS[member.part] : null },
+              { label: '직책', value: member.role ? ROLE_LABELS[member.role] : null },
               { label: '전화번호', value: member.phone ? formatPhoneNumber(member.phone) : null },
               { label: '생년월일', value: member.birthday?.replace(/(\d{4})-(\d{2})-(\d{2})/, '$1년 $2월 $3일') },
               { label: '축일', value: member.feast_day?.replace(/(\d{2})-(\d{2})/, '$1월 $2일') },
