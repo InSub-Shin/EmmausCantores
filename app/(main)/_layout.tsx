@@ -1,15 +1,26 @@
 import { Tabs } from 'expo-router';
-import { Text, Platform } from 'react-native';
+import { Text, Platform, Dimensions, StatusBar } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 function TabIcon({ icon, focused }: { icon: string; focused: boolean }) {
   return <Text style={{ fontSize: 22, opacity: focused ? 1 : 0.5 }}>{icon}</Text>;
 }
 
-export default function MainLayout() {
+function useBottomInset() {
   const insets = useSafeAreaInsets();
-  // 안드로이드 하단 네비게이션 바 높이만큼 패딩 추가
-  const bottomPadding = Platform.OS === 'android' ? Math.max(insets.bottom, 8) : insets.bottom;
+  if (Platform.OS !== 'android') return insets.bottom;
+
+  // useSafeAreaInsets가 일부 갤럭시 기기에서 0을 반환하는 경우를 보완.
+  // 화면 전체 높이 - 앱 윈도우 높이 - 상태바 높이 = 실제 네비게이션 바 높이
+  const screen = Dimensions.get('screen');
+  const window = Dimensions.get('window');
+  const detectedNavBar = Math.max(0, screen.height - window.height - (StatusBar.currentHeight ?? 0));
+  return Math.max(insets.bottom, detectedNavBar);
+}
+
+export default function MainLayout() {
+  const bottomInset = useBottomInset();
+  const bottomPadding = Math.max(bottomInset, 8);
 
   return (
     <Tabs
