@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-import { View, Text, FlatList, TouchableOpacity, RefreshControl, Alert, Modal, ScrollView, Linking } from 'react-native';
+import { View, Text, FlatList, TouchableOpacity, RefreshControl, Alert, Modal, ScrollView, Linking, BackHandler } from 'react-native';
+import { useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as DocumentPicker from 'expo-document-picker';
 import { format } from 'date-fns';
@@ -12,6 +13,9 @@ import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 
+type FileItem = { name: string; uri: string; type: string; label: string };
+const SHEET_PARTS = ['전체', '소프라노', '알토', '테너', '베이스'] as const;
+
 export default function SongsScreen() {
   const { profile } = useAuthStore();
   const { selectedSong: homeSelectedSong, setSelectedSong: setHomeSelectedSong } = useHomeNavigationStore();
@@ -22,7 +26,7 @@ export default function SongsScreen() {
   const [form, setForm] = useState({ title: '', description: '' });
   const [youtubeUrls, setYoutubeUrls] = useState<string[]>(['']);
   const [youtubeTitles, setYoutubeTitles] = useState<string[]>(['전체']);
-  const [files, setFiles] = useState<{ name: string; uri: string; type: string }[]>([]);
+  const [files, setFiles] = useState<FileItem[]>([]);
   const [saving, setSaving] = useState(false);
   const [selectedSong, setSelectedSong] = useState<Song | null>(null);
   const [showSongDetail, setShowSongDetail] = useState(false);
@@ -30,7 +34,8 @@ export default function SongsScreen() {
   const [editForm, setEditForm] = useState({ title: '', description: '' });
   const [editYoutubeUrls, setEditYoutubeUrls] = useState<string[]>(['']);
   const [editYoutubeTitles, setEditYoutubeTitles] = useState<string[]>(['전체']);
-  const [editFiles, setEditFiles] = useState<{ name: string; uri: string; type: string }[]>([]);
+  const [editFiles, setEditFiles] = useState<FileItem[]>([]);
+  const [editFilesToDelete, setEditFilesToDelete] = useState<string[]>([]);
 
   const fetchSongs = useCallback(async () => {
     const { data } = await supabase
@@ -42,17 +47,49 @@ export default function SongsScreen() {
 
   useEffect(() => { fetchSongs(); }, []); // 초기 로드만
 
-  // 홈 화면에서 선택된 특송 자동으로 표시
+  // 안드로이드 뒤로가기: 모달 순서대로 닫기
+  useFocusEffect(
+    useCallback(() => {
+      const onBackPress = () => {
+        if (showCreate) { setShowCreate(false); return true; }
+        if (showSongDetail) {
+          if (editingSong) {
+            setEditingSong(false);
+            setEditFiles([]);
+            setEditFilesToDelete([]);
+            return true;
+          }
+          setShowSongDetail(false);
+          return true;
+        }
+        return false;
+      };
+      const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+      return () => sub.remove();
+    }, [showCreate, showSongDetail, editingSong])
+  );
+
+  // 홈 화면에서 선택된 특송 자동으로 표시 (풀 데이터 fetch 후 모달 열기)
   useEffect(() => {
     if (homeSelectedSong) {
-      setSelectedSong(homeSelectedSong); // 선택된 특송 설정
-      setEditForm({ title: homeSelectedSong.title || '', description: homeSelectedSong.description || '' }); // 편집 폼 설정
-      setEditYoutubeUrls(homeSelectedSong.youtube_links || ['']); // YouTube URL 설정
-      setEditYoutubeTitles(homeSelectedSong.youtube_titles || ['전체']); // YouTube 제목 설정
-      setEditFiles([]); // 편집 파일 초기화
-      setEditingSong(false); // 편집 모드 해제
-      setShowSongDetail(true); // 상세 모달 표시
-      setHomeSelectedSong(null); // 초기화
+      const songId = homeSelectedSong.id;
+      setHomeSelectedSong(null);
+      setEditingSong(false);
+      setEditFiles([]);
+      setEditFilesToDelete([]);
+      supabase
+        .from('songs')
+        .select('*, files:song_files(*), creator:profiles!created_by(name)')
+        .eq('id', songId)
+        .single()
+        .then(({ data }) => {
+          const song = (data as unknown as Song) ?? homeSelectedSong;
+          setSelectedSong(song);
+          setEditForm({ title: song.title || '', description: song.description || '' });
+          setEditYoutubeUrls(song.youtube_links && song.youtube_links.length > 0 ? song.youtube_links : ['']);
+          setEditYoutubeTitles(song.youtube_titles && song.youtube_titles.length > 0 ? song.youtube_titles : ['전체']);
+          setShowSongDetail(true);
+        });
     }
   }, [homeSelectedSong]);
 
@@ -61,7 +98,12 @@ export default function SongsScreen() {
   const pickFile = async (isEdit: boolean = false) => {
     const result = await DocumentPicker.getDocumentAsync({ type: ['application/pdf', 'image/*'], multiple: true });
     if (!result.canceled) {
-      const newFiles = result.assets.map((a) => ({ name: a.name, uri: a.uri, type: a.mimeType ?? 'application/octet-stream' }));
+      const newFiles = result.assets.map((a) => ({
+        name: a.name,
+        uri: a.uri,
+        type: a.mimeType ?? 'application/octet-stream',
+        label: '전체',
+      }));
       if (isEdit) {
         setEditFiles((prev) => [...prev, ...newFiles]);
       } else {
@@ -100,7 +142,13 @@ export default function SongsScreen() {
       const { data: uploaded } = await supabase.storage.from('song-files').upload(path, blob, { contentType: file.type });
       if (uploaded) {
         const { data: { publicUrl } } = supabase.storage.from('song-files').getPublicUrl(path);
-        await supabase.from('song_files').insert({ song_id: songData.id, file_name: file.name, file_url: publicUrl, file_type: file.type });
+        await supabase.from('song_files').insert({
+          song_id: songData.id,
+          file_name: file.name,
+          file_url: publicUrl,
+          file_type: file.type,
+          label: file.label || '전체',
+        });
       }
     }
 
@@ -137,6 +185,11 @@ export default function SongsScreen() {
       return;
     }
 
+    // 삭제 표시된 기존 파일 제거
+    for (const fileId of editFilesToDelete) {
+      await supabase.from('song_files').delete().eq('id', fileId);
+    }
+
     // 새로운 파일 업로드
     for (const file of editFiles) {
       const path = `songs/${selectedSong!.id}/${Date.now()}_${file.name}`;
@@ -146,7 +199,13 @@ export default function SongsScreen() {
       const { data: uploaded } = await supabase.storage.from('song-files').upload(path, blob, { contentType: file.type });
       if (uploaded) {
         const { data: { publicUrl } } = supabase.storage.from('song-files').getPublicUrl(path);
-        await supabase.from('song_files').insert({ song_id: selectedSong!.id, file_name: file.name, file_url: publicUrl, file_type: file.type });
+        await supabase.from('song_files').insert({
+          song_id: selectedSong!.id,
+          file_name: file.name,
+          file_url: publicUrl,
+          file_type: file.type,
+          label: file.label || '전체',
+        });
       }
     }
 
@@ -154,6 +213,7 @@ export default function SongsScreen() {
     setShowSongDetail(false);
     setSelectedSong(null);
     setEditFiles([]);
+    setEditFilesToDelete([]);
     setEditYoutubeTitles(['전체']);
     await fetchSongs();
     setSaving(false);
@@ -171,21 +231,27 @@ export default function SongsScreen() {
             Alert.alert('오류', '특송 삭제에 실패했습니다. ' + error.message);
             return;
           }
-          // 모달 먼저 닫기
           setShowSongDetail(false);
-          // 목록 새로고침
           await fetchSongs();
         },
       },
     ]);
   };
 
-  const openSongDetail = (song: Song) => {
-    setSelectedSong(song);
-    setEditForm({ title: song.title, description: song.description || '' });
-    setEditYoutubeUrls(song.youtube_links && song.youtube_links.length > 0 ? song.youtube_links : ['']);
-    setEditYoutubeTitles(song.youtube_titles && song.youtube_titles.length > 0 ? song.youtube_titles : ['전체']);
+  const openSongDetail = async (song: Song) => {
+    setEditingSong(false);
     setEditFiles([]);
+    setEditFilesToDelete([]);
+    const { data } = await supabase
+      .from('songs')
+      .select('*, files:song_files(*), creator:profiles!created_by(name)')
+      .eq('id', song.id)
+      .single();
+    const fullSong = (data as unknown as Song) ?? song;
+    setSelectedSong(fullSong);
+    setEditForm({ title: fullSong.title, description: fullSong.description || '' });
+    setEditYoutubeUrls(fullSong.youtube_links && fullSong.youtube_links.length > 0 ? fullSong.youtube_links : ['']);
+    setEditYoutubeTitles(fullSong.youtube_titles && fullSong.youtube_titles.length > 0 ? fullSong.youtube_titles : ['전체']);
     setShowSongDetail(true);
   };
 
@@ -228,7 +294,7 @@ export default function SongsScreen() {
         )}
       />
 
-      {/* 특송 추가 모달 */}
+      {/* ── 특송 추가 모달 ── */}
       <Modal visible={showCreate} animationType="slide" presentationStyle="pageSheet">
         <SafeAreaView className="flex-1 bg-white">
           <View className="flex-row items-center justify-between px-5 py-4 border-b border-gray-100">
@@ -240,91 +306,95 @@ export default function SongsScreen() {
             <Input label="곡 제목" value={form.title} onChangeText={(v) => setForm((f) => ({ ...f, title: v }))} placeholder="특송 제목" />
             <Input label="설명 (선택)" value={form.description} onChangeText={(v) => setForm((f) => ({ ...f, description: v }))} placeholder="설명" multiline />
 
+            {/* 유튜브 링크 */}
             <Text className="text-sm font-medium text-gray-700 mb-2">유튜브 링크 (여러 개 가능)</Text>
             {youtubeUrls.map((url, idx) => {
               const currentTitle = youtubeTitles[idx] || '전체';
               const isCustom = !['전체', '소프라노', '알토', '테너', '베이스'].includes(currentTitle);
               return (
-              <View key={`yt-create-${idx}`} className="mb-3 pb-3 border-b border-gray-100">
-                {/* 제목 선택 */}
-                <Text className="text-xs text-gray-600 mb-1.5 font-medium">소제목</Text>
-                <View className="flex-row gap-1.5 mb-2 flex-wrap">
-                  {['전체', '소프라노', '알토', '테너', '베이스', '기타'].map((part) => (
-                    <TouchableOpacity
-                      key={part}
-                      onPress={() => setYoutubeTitles((prev) => prev.map((t, i) => i === idx ? part : t))}
-                      className={`px-2.5 py-1 rounded-full ${
-                        (currentTitle === part || (part === '기타' && isCustom))
-                          ? 'bg-red-500'
-                          : 'bg-gray-200'
-                      }`}
-                    >
-                      <Text className={`text-xs font-medium ${
-                        (currentTitle === part || (part === '기타' && isCustom)) ? 'text-white' : 'text-gray-600'
-                      }`}>
-                        {part}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-                {/* 기타 선택 시 직접 입력 */}
-                {(currentTitle === '기타' || isCustom) && (
-                  <Input
-                    placeholder="직접 입력..."
-                    value={isCustom ? currentTitle : ''}
-                    onChangeText={(v) => setYoutubeTitles((prev) => prev.map((t, i) => i === idx ? v : t))}
-                  />
-                )}
-
-                {/* 링크 입력 */}
-                <Text className="text-xs text-gray-600 mb-1.5 font-medium mt-2">링크</Text>
-                <View className="flex-row items-center gap-2">
-                  <View className="flex-1">
-                    <Input
-                      value={url}
-                      onChangeText={(v) => setYoutubeUrls((prev) => prev.map((u, i) => i === idx ? v : u))}
-                      placeholder="https://youtube.com/..."
-                    />
+                <View key={`yt-create-${idx}`} className="mb-3 pb-3 border-b border-gray-100">
+                  <Text className="text-xs text-gray-600 mb-1.5 font-medium">소제목</Text>
+                  <View className="flex-row gap-1.5 mb-2 flex-wrap">
+                    {['전체', '소프라노', '알토', '테너', '베이스', '기타'].map((part) => (
+                      <TouchableOpacity
+                        key={part}
+                        onPress={() => setYoutubeTitles((prev) => prev.map((t, i) => i === idx ? part : t))}
+                        className={`px-2.5 py-1 rounded-full ${(currentTitle === part || (part === '기타' && isCustom)) ? 'bg-red-500' : 'bg-gray-200'}`}
+                      >
+                        <Text className={`text-xs font-medium ${(currentTitle === part || (part === '기타' && isCustom)) ? 'text-white' : 'text-gray-600'}`}>
+                          {part}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
                   </View>
-                  {youtubeUrls.length > 1 && (
-                    <TouchableOpacity onPress={() => {
-                      setYoutubeUrls((prev) => prev.filter((_, i) => i !== idx));
-                      setYoutubeTitles((prev) => prev.filter((_, i) => i !== idx));
-                    }}>
-                      <Text className="text-red-400 text-lg pb-4">✕</Text>
-                    </TouchableOpacity>
+                  {(currentTitle === '기타' || isCustom) && (
+                    <Input
+                      placeholder="직접 입력..."
+                      value={isCustom ? currentTitle : ''}
+                      onChangeText={(v) => setYoutubeTitles((prev) => prev.map((t, i) => i === idx ? v : t))}
+                    />
                   )}
+                  <Text className="text-xs text-gray-600 mb-1.5 font-medium mt-2">링크</Text>
+                  <View className="flex-row items-center gap-2">
+                    <View className="flex-1">
+                      <Input
+                        value={url}
+                        onChangeText={(v) => setYoutubeUrls((prev) => prev.map((u, i) => i === idx ? v : u))}
+                        placeholder="https://youtube.com/..."
+                      />
+                    </View>
+                    {youtubeUrls.length > 1 && (
+                      <TouchableOpacity onPress={() => {
+                        setYoutubeUrls((prev) => prev.filter((_, i) => i !== idx));
+                        setYoutubeTitles((prev) => prev.filter((_, i) => i !== idx));
+                      }}>
+                        <Text className="text-red-400 text-lg pb-4">✕</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
                 </View>
-              </View>
-            );
+              );
             })}
             <TouchableOpacity
-              onPress={() => {
-                setYoutubeUrls((prev) => [...prev, '']);
-                setYoutubeTitles((prev) => [...prev, '전체']);
-              }}
+              onPress={() => { setYoutubeUrls((prev) => [...prev, '']); setYoutubeTitles((prev) => [...prev, '전체']); }}
               className="border border-dashed border-red-200 rounded-xl py-2 items-center mb-4"
             >
               <Text className="text-red-400 text-sm">+ 유튜브 링크 추가</Text>
             </TouchableOpacity>
 
-            <Text className="text-sm font-medium text-gray-700 mb-2">파일 첨부 (PDF, 이미지)</Text>
+            {/* 악보 파일 */}
+            <Text className="text-sm font-medium text-gray-700 mb-2">🎼 악보 파일 (여러 파트 가능)</Text>
             {files.map((f, i) => (
-              <View key={`file-${f.name}-${i}`} className="flex-row items-center bg-gray-50 rounded-xl px-3 py-2 mb-2">
-                <Text className="text-gray-600 flex-1 text-sm" numberOfLines={1}>📄 {f.name}</Text>
-                <TouchableOpacity onPress={() => setFiles((prev) => prev.filter((_, idx) => idx !== i))}>
-                  <Text className="text-red-400">✕</Text>
-                </TouchableOpacity>
+              <View key={`file-create-${i}`} className="mb-3 pb-3 border-b border-gray-100">
+                <Text className="text-xs text-gray-600 mb-1.5 font-medium">파트</Text>
+                <View className="flex-row gap-1.5 mb-2 flex-wrap">
+                  {SHEET_PARTS.map((part) => (
+                    <TouchableOpacity
+                      key={part}
+                      onPress={() => setFiles((prev) => prev.map((file, fi) => fi === i ? { ...file, label: part } : file))}
+                      className={`px-2.5 py-1 rounded-full ${f.label === part ? 'bg-indigo-600' : 'bg-gray-200'}`}
+                    >
+                      <Text className={`text-xs font-medium ${f.label === part ? 'text-white' : 'text-gray-600'}`}>{part}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+                <View className="flex-row items-center bg-gray-50 rounded-xl px-3 py-2">
+                  <Text className="text-indigo-400 mr-2">🎼</Text>
+                  <Text className="text-gray-600 flex-1 text-sm" numberOfLines={1}>{f.name}</Text>
+                  <TouchableOpacity onPress={() => setFiles((prev) => prev.filter((_, idx) => idx !== i))} className="ml-2">
+                    <Text className="text-red-400">✕</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
             ))}
-            <TouchableOpacity onPress={() => pickFile(false)} className="border border-dashed border-gray-300 rounded-xl py-3 items-center">
-              <Text className="text-gray-400 text-sm">+ 파일 선택</Text>
+            <TouchableOpacity onPress={() => pickFile(false)} className="border border-dashed border-indigo-200 rounded-xl py-3 items-center">
+              <Text className="text-indigo-400 text-sm">+ 악보 파일 선택</Text>
             </TouchableOpacity>
           </ScrollView>
         </SafeAreaView>
       </Modal>
 
-      {/* 특송 상세보기 모달 */}
+      {/* ── 특송 상세보기 모달 ── */}
       <Modal visible={showSongDetail} animationType="slide" presentationStyle="pageSheet">
         <SafeAreaView className="flex-1 bg-white">
           <View className="flex-row items-center justify-between px-5 py-4 border-b border-gray-100">
@@ -338,12 +408,13 @@ export default function SongsScreen() {
               </TouchableOpacity>
             )}
             {editingSong && (
-              <TouchableOpacity onPress={() => setEditingSong(false)}>
+              <TouchableOpacity onPress={() => { setEditingSong(false); setEditFiles([]); setEditFilesToDelete([]); }}>
                 <Text className="text-gray-500">취소</Text>
               </TouchableOpacity>
             )}
           </View>
 
+          {/* 상세 보기 */}
           {!editingSong ? (
             <ScrollView contentContainerStyle={{ padding: 20 }}>
               <Card className="mb-4">
@@ -362,24 +433,31 @@ export default function SongsScreen() {
                   >
                     <Text className="text-red-500 mr-2">▶</Text>
                     <Text className="text-red-600 text-sm flex-1" numberOfLines={1}>
-                      {selectedSong?.youtube_links && selectedSong.youtube_links.length > 1
+                      {selectedSong?.youtube_titles && selectedSong.youtube_titles[idx]
+                        ? selectedSong.youtube_titles[idx]
+                        : selectedSong?.youtube_links && selectedSong.youtube_links.length > 1
                         ? `유튜브 ${idx + 1}번 영상`
                         : '유튜브에서 보기'}
                     </Text>
                   </TouchableOpacity>
                 ))}
                 {selectedSong?.files && selectedSong.files.length > 0 && (
-                  <View className="mt-4">
+                  <View className="mt-3">
+                    <Text className="text-sm font-semibold text-gray-700 mb-2">🎼 악보</Text>
                     {selectedSong.files.map((file: any) => (
                       <TouchableOpacity
                         key={file.id}
                         onPress={() => Linking.openURL(file.file_url)}
-                        className="flex-row items-center bg-gray-50 rounded-xl px-3 py-2 mb-1"
+                        className="flex-row items-center bg-indigo-50 rounded-xl px-3 py-2 mb-1"
                       >
-                        <Text className="text-gray-500 mr-2">📄</Text>
-                        <Text className="text-gray-700 text-sm flex-1" numberOfLines={1}>
-                          {file.file_name}
-                        </Text>
+                        <Text className="text-indigo-400 mr-2">🎼</Text>
+                        <View className="flex-1">
+                          {file.label && file.label !== '전체' && (
+                            <Text className="text-xs text-indigo-600 font-medium">{file.label}</Text>
+                          )}
+                          <Text className="text-indigo-700 text-sm" numberOfLines={1}>{file.file_name}</Text>
+                        </View>
+                        <Text className="text-indigo-400 text-xs ml-2">열기 →</Text>
                       </TouchableOpacity>
                     ))}
                   </View>
@@ -387,6 +465,7 @@ export default function SongsScreen() {
               </Card>
             </ScrollView>
           ) : (
+            /* 수정 모드 */
             <ScrollView contentContainerStyle={{ padding: 20 }}>
               <Input
                 label="곡 제목"
@@ -402,103 +481,115 @@ export default function SongsScreen() {
                 multiline
               />
 
+              {/* 유튜브 링크 */}
               <Text className="text-sm font-medium text-gray-700 mb-2">유튜브 링크 (여러 개 가능)</Text>
               {editYoutubeUrls.map((url, idx) => {
                 const currentTitle = editYoutubeTitles[idx] || '전체';
                 const isCustom = !['전체', '소프라노', '알토', '테너', '베이스'].includes(currentTitle);
                 return (
-                <View key={`yt-edit-${selectedSong?.id}-${idx}`} className="mb-3 pb-3 border-b border-gray-100">
-                  {/* 제목 선택 */}
-                  <Text className="text-xs text-gray-600 mb-1.5 font-medium">소제목</Text>
-                  <View className="flex-row gap-1.5 mb-2 flex-wrap">
-                    {['전체', '소프라노', '알토', '테너', '베이스', '기타'].map((part) => (
-                      <TouchableOpacity
-                        key={part}
-                        onPress={() => setEditYoutubeTitles((prev) => prev.map((t, i) => i === idx ? part : t))}
-                        className={`px-2.5 py-1 rounded-full ${
-                          (currentTitle === part || (part === '기타' && isCustom))
-                            ? 'bg-red-500'
-                            : 'bg-gray-200'
-                        }`}
-                      >
-                        <Text className={`text-xs font-medium ${
-                          (currentTitle === part || (part === '기타' && isCustom)) ? 'text-white' : 'text-gray-600'
-                        }`}>
-                          {part}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                  {/* 기타 선택 시 직접 입력 */}
-                  {(currentTitle === '기타' || isCustom) && (
-                    <Input
-                      placeholder="직접 입력..."
-                      value={isCustom ? currentTitle : ''}
-                      onChangeText={(v) => setEditYoutubeTitles((prev) => prev.map((t, i) => i === idx ? v : t))}
-                    />
-                  )}
-
-                  {/* 링크 입력 */}
-                  <Text className="text-xs text-gray-600 mb-1.5 font-medium mt-2">링크</Text>
-                  <View className="flex-row items-center gap-2">
-                    <View className="flex-1">
-                      <Input
-                        value={url}
-                        onChangeText={(v) => setEditYoutubeUrls((prev) => prev.map((u, i) => (i === idx ? v : u)))}
-                        placeholder="https://youtube.com/..."
-                      />
+                  <View key={`yt-edit-${selectedSong?.id}-${idx}`} className="mb-3 pb-3 border-b border-gray-100">
+                    <Text className="text-xs text-gray-600 mb-1.5 font-medium">소제목</Text>
+                    <View className="flex-row gap-1.5 mb-2 flex-wrap">
+                      {['전체', '소프라노', '알토', '테너', '베이스', '기타'].map((part) => (
+                        <TouchableOpacity
+                          key={part}
+                          onPress={() => setEditYoutubeTitles((prev) => prev.map((t, i) => i === idx ? part : t))}
+                          className={`px-2.5 py-1 rounded-full ${(currentTitle === part || (part === '기타' && isCustom)) ? 'bg-red-500' : 'bg-gray-200'}`}
+                        >
+                          <Text className={`text-xs font-medium ${(currentTitle === part || (part === '기타' && isCustom)) ? 'text-white' : 'text-gray-600'}`}>
+                            {part}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
                     </View>
-                    {editYoutubeUrls.length > 1 && (
-                      <TouchableOpacity onPress={() => {
-                        setEditYoutubeUrls((prev) => prev.filter((_, i) => i !== idx));
-                        setEditYoutubeTitles((prev) => prev.filter((_, i) => i !== idx));
-                      }}>
-                        <Text className="text-red-400 text-lg pb-4">✕</Text>
-                      </TouchableOpacity>
+                    {(currentTitle === '기타' || isCustom) && (
+                      <Input
+                        placeholder="직접 입력..."
+                        value={isCustom ? currentTitle : ''}
+                        onChangeText={(v) => setEditYoutubeTitles((prev) => prev.map((t, i) => i === idx ? v : t))}
+                      />
                     )}
+                    <Text className="text-xs text-gray-600 mb-1.5 font-medium mt-2">링크</Text>
+                    <View className="flex-row items-center gap-2">
+                      <View className="flex-1">
+                        <Input
+                          value={url}
+                          onChangeText={(v) => setEditYoutubeUrls((prev) => prev.map((u, i) => (i === idx ? v : u)))}
+                          placeholder="https://youtube.com/..."
+                        />
+                      </View>
+                      {editYoutubeUrls.length > 1 && (
+                        <TouchableOpacity onPress={() => {
+                          setEditYoutubeUrls((prev) => prev.filter((_, i) => i !== idx));
+                          setEditYoutubeTitles((prev) => prev.filter((_, i) => i !== idx));
+                        }}>
+                          <Text className="text-red-400 text-lg pb-4">✕</Text>
+                        </TouchableOpacity>
+                      )}
+                    </View>
                   </View>
-                </View>
-              );
+                );
               })}
               <TouchableOpacity
-                onPress={() => {
-                  setEditYoutubeUrls((prev) => [...prev, '']);
-                  setEditYoutubeTitles((prev) => [...prev, '전체']);
-                }}
+                onPress={() => { setEditYoutubeUrls((prev) => [...prev, '']); setEditYoutubeTitles((prev) => [...prev, '전체']); }}
                 className="border border-dashed border-red-200 rounded-xl py-2 items-center mb-4"
               >
                 <Text className="text-red-400 text-sm">+ 유튜브 링크 추가</Text>
               </TouchableOpacity>
 
-              <Text className="text-sm font-medium text-gray-700 mb-2">파일 첨부 (PDF, 이미지)</Text>
-              {selectedSong?.files && selectedSong.files.length > 0 && (
-                <View className="mb-2">
-                  <Text className="text-xs text-gray-500 mb-1">기존 파일:</Text>
-                  {selectedSong.files.map((file: any) => (
-                    <View key={file.id} className="flex-row items-center bg-gray-50 rounded-xl px-3 py-2 mb-1">
-                      <Text className="text-gray-500 mr-2">📄</Text>
-                      <Text className="text-gray-700 text-sm flex-1" numberOfLines={1}>
-                        {file.file_name}
-                      </Text>
-                    </View>
-                  ))}
+              {/* 악보 파일 */}
+              <Text className="text-sm font-medium text-gray-700 mb-2">🎼 악보 파일</Text>
+
+              {/* 기존 악보 (삭제 가능) */}
+              {selectedSong?.files && selectedSong.files.filter((f: any) => !editFilesToDelete.includes(f.id)).length > 0 && (
+                <View className="mb-3">
+                  <Text className="text-xs text-gray-500 mb-1">기존 악보:</Text>
+                  {selectedSong.files
+                    .filter((f: any) => !editFilesToDelete.includes(f.id))
+                    .map((file: any) => (
+                      <View key={file.id} className="flex-row items-center bg-gray-50 rounded-xl px-3 py-2 mb-1">
+                        <Text className="text-indigo-400 mr-2">🎼</Text>
+                        <View className="flex-1">
+                          {file.label && file.label !== '전체' && (
+                            <Text className="text-xs text-indigo-600 font-medium">{file.label}</Text>
+                          )}
+                          <Text className="text-gray-700 text-sm" numberOfLines={1}>{file.file_name}</Text>
+                        </View>
+                        <TouchableOpacity onPress={() => setEditFilesToDelete((prev) => [...prev, file.id])} className="ml-2 p-1">
+                          <Text className="text-red-400">✕</Text>
+                        </TouchableOpacity>
+                      </View>
+                    ))}
                 </View>
               )}
-              {editFiles.length > 0 && (
-                <View className="mb-2">
-                  <Text className="text-xs text-gray-500 mb-1">새로 추가할 파일:</Text>
-                  {editFiles.map((f, i) => (
-                    <View key={`edit-file-${f.name}-${i}`} className="flex-row items-center bg-gray-50 rounded-xl px-3 py-2 mb-2">
-                      <Text className="text-gray-600 flex-1 text-sm" numberOfLines={1}>📄 {f.name}</Text>
-                      <TouchableOpacity onPress={() => setEditFiles((prev) => prev.filter((_, idx) => idx !== i))}>
-                        <Text className="text-red-400">✕</Text>
+
+              {/* 새로 추가할 악보 (파트 선택) */}
+              {editFiles.map((f, i) => (
+                <View key={`edit-file-${i}`} className="mb-3 pb-3 border-b border-gray-100">
+                  <Text className="text-xs text-gray-600 mb-1.5 font-medium">파트</Text>
+                  <View className="flex-row gap-1.5 mb-2 flex-wrap">
+                    {SHEET_PARTS.map((part) => (
+                      <TouchableOpacity
+                        key={part}
+                        onPress={() => setEditFiles((prev) => prev.map((file, fi) => fi === i ? { ...file, label: part } : file))}
+                        className={`px-2.5 py-1 rounded-full ${f.label === part ? 'bg-indigo-600' : 'bg-gray-200'}`}
+                      >
+                        <Text className={`text-xs font-medium ${f.label === part ? 'text-white' : 'text-gray-600'}`}>{part}</Text>
                       </TouchableOpacity>
-                    </View>
-                  ))}
+                    ))}
+                  </View>
+                  <View className="flex-row items-center bg-gray-50 rounded-xl px-3 py-2">
+                    <Text className="text-indigo-400 mr-2">🎼</Text>
+                    <Text className="text-gray-600 flex-1 text-sm" numberOfLines={1}>{f.name}</Text>
+                    <TouchableOpacity onPress={() => setEditFiles((prev) => prev.filter((_, idx) => idx !== i))} className="ml-2">
+                      <Text className="text-red-400">✕</Text>
+                    </TouchableOpacity>
+                  </View>
                 </View>
-              )}
-              <TouchableOpacity onPress={() => pickFile(true)} className="border border-dashed border-gray-300 rounded-xl py-3 items-center mb-4">
-                <Text className="text-gray-400 text-sm">+ 파일 선택</Text>
+              ))}
+
+              <TouchableOpacity onPress={() => pickFile(true)} className="border border-dashed border-indigo-200 rounded-xl py-3 items-center mb-4">
+                <Text className="text-indigo-400 text-sm">+ 악보 파일 선택</Text>
               </TouchableOpacity>
 
               <View className="flex-row gap-3">
@@ -558,10 +649,12 @@ function SongCard({ song }: { song: Song }) {
             <TouchableOpacity
               key={file.id}
               onPress={() => Linking.openURL(file.file_url)}
-              className="flex-row items-center bg-gray-50 rounded-xl px-3 py-2 mb-1"
+              className="flex-row items-center bg-indigo-50 rounded-xl px-3 py-2 mb-1"
             >
-              <Text className="text-gray-500 mr-2">📄</Text>
-              <Text className="text-gray-700 text-sm flex-1" numberOfLines={1}>{file.file_name}</Text>
+              <Text className="text-indigo-400 mr-2">🎼</Text>
+              <Text className="text-indigo-700 text-sm flex-1" numberOfLines={1}>
+                {file.label && file.label !== '전체' ? `[${file.label}] ` : ''}{file.file_name}
+              </Text>
             </TouchableOpacity>
           ))}
         </View>

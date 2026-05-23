@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-import { View, Text, ScrollView, FlatList, TouchableOpacity, Alert, Modal } from 'react-native';
-import { useLocalSearchParams, router } from 'expo-router';
+import { View, Text, ScrollView, FlatList, TouchableOpacity, Alert, Modal, BackHandler } from 'react-native';
+import { useLocalSearchParams, router, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
@@ -103,6 +103,18 @@ export default function VoteDetailScreen() {
       setSelected([itemId]);
     }
   };
+
+  useFocusEffect(
+    useCallback(() => {
+      const onBackPress = () => {
+        if (showParticipants) { setShowParticipants(false); return true; }
+        if (isEditing) { setIsEditing(false); return true; }
+        return false;
+      };
+      const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+      return () => sub.remove();
+    }, [showParticipants, isEditing])
+  );
 
   const openEditModal = () => {
     if (!vote) return;

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-import { View, Text, FlatList, TouchableOpacity, RefreshControl, Modal, ScrollView, Alert } from 'react-native';
-import { router } from 'expo-router';
+import { View, Text, FlatList, TouchableOpacity, RefreshControl, Modal, ScrollView, Alert, BackHandler } from 'react-native';
+import { router, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
@@ -50,6 +50,7 @@ export default function VotesScreen() {
       .eq('id', voteId)
       .single();
     if (data) setSelectedVote(data as unknown as Vote);
+    return data ? (data as unknown as Vote) : null;
   }, []);
 
   useEffect(() => {
@@ -59,19 +60,43 @@ export default function VotesScreen() {
     });
   }, []); // 초기 로드만
 
+  // 안드로이드 뒤로가기: 모달 순서대로 닫기
+  useFocusEffect(
+    useCallback(() => {
+      const onBackPress = () => {
+        if (showNonVotersModal) { setShowNonVotersModal(false); setSelectedNonVoters(new Set()); return true; }
+        if (showParticipants) { setShowParticipants(false); return true; }
+        if (showVoteDetail) {
+          if (isEditing) { setIsEditing(false); return true; }
+          setShowVoteDetail(false);
+          return true;
+        }
+        return false;
+      };
+      const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+      return () => sub.remove();
+    }, [showNonVotersModal, showParticipants, showVoteDetail, isEditing])
+  );
+
   // 홈 화면에서 선택된 투표 자동으로 표시
   useEffect(() => {
     if (homeSelectedVote) {
-      setSelectedVote(homeSelectedVote); // 선택된 투표 설정
-      setSelected([]); // 선택 초기화
-      setIsEditing(false); // 편집 모드 해제
-      setEditForm({ title: '', description: '' }); // 편집 폼 초기화
-      setEditVoteItems(['', '']); // 편집 항목 초기화
-      setShowVoteDetail(true); // 모달 먼저 열기
-
-      // 자세한 정보 로드 (백그라운드에서)
-      fetchVoteDetail(homeSelectedVote.id);
-      setHomeSelectedVote(null); // 초기화
+      const vote = homeSelectedVote;
+      setHomeSelectedVote(null);
+      setIsEditing(false);
+      setEditForm({ title: '', description: '' });
+      setEditVoteItems(['', '']);
+      fetchVoteDetail(vote.id).then((fullVote) => {
+        if (fullVote && profile) {
+          const myVotes = fullVote.items?.flatMap((i) =>
+            i.responses?.some((r) => r.user_id === profile.id) ? [i.id] : []
+          ) ?? [];
+          setSelected(myVotes);
+        } else {
+          setSelected([]);
+        }
+        setShowVoteDetail(true);
+      });
     }
   }, [homeSelectedVote, fetchVoteDetail]);
 
@@ -83,12 +108,18 @@ export default function VotesScreen() {
   };
 
   const openVoteDetail = async (vote: Vote) => {
-    setSelectedVote(vote);
-    setSelected([]);
     setIsEditing(false);
     setEditForm({ title: '', description: '' });
     setEditVoteItems(['', '']);
-    await fetchVoteDetail(vote.id);
+    const fullVote = await fetchVoteDetail(vote.id);
+    if (fullVote && profile) {
+      const myVotes = fullVote.items?.flatMap((i) =>
+        i.responses?.some((r) => r.user_id === profile.id) ? [i.id] : []
+      ) ?? [];
+      setSelected(myVotes);
+    } else {
+      setSelected([]);
+    }
     setShowVoteDetail(true);
   };
 
@@ -122,21 +153,44 @@ export default function VotesScreen() {
     if (!selectedVote || !profile || selected.length === 0) return;
     setSubmitting(true);
 
-    await supabase.from('vote_responses').delete()
-      .eq('vote_id', selectedVote.id).eq('user_id', profile.id);
+    try {
+      // vote_item_id 기준으로 기존 응답 삭제 (더 안전한 방식)
+      const allItemIds = selectedVote.items?.map((i) => i.id).filter(Boolean) ?? [];
+      if (allItemIds.length > 0) {
+        const { error: deleteError } = await supabase
+          .from('vote_responses')
+          .delete()
+          .in('vote_item_id', allItemIds)
+          .eq('user_id', profile.id);
+        if (deleteError) console.error('Vote delete error:', deleteError);
+      }
 
-    const rows = selected.map((itemId) => ({
-      vote_id: selectedVote.id,
-      vote_item_id: itemId,
-      user_id: profile.id,
-    }));
+      const rows = selected.map((itemId) => ({
+        vote_id: selectedVote.id,
+        vote_item_id: itemId,
+        user_id: profile.id,
+      }));
 
-    const { error } = await supabase.from('vote_responses').insert(rows);
-    if (error) Alert.alert('오류', '투표에 실패했습니다.');
-    else await fetchVoteDetail(selectedVote.id);
+      const { error } = await supabase.from('vote_responses').insert(rows);
+      if (error) {
+        console.error('Vote insert error:', JSON.stringify(error));
+        Alert.alert('오류', `투표에 실패했습니다.\n${error.message}`);
+      } else {
+        // 최신 데이터로 갱신 후 내가 투표한 항목을 selected에 반영
+        const freshVote = await fetchVoteDetail(selectedVote.id);
+        if (freshVote && profile) {
+          const myVotes = freshVote.items?.flatMap((i) =>
+            i.responses?.some((r) => r.user_id === profile.id) ? [i.id] : []
+          ) ?? [];
+          setSelected(myVotes);
+        }
+      }
+    } catch (err) {
+      console.error('Vote unexpected error:', err);
+      Alert.alert('오류', '투표 중 오류가 발생했습니다.');
+    }
 
     setSubmitting(false);
-    setSelected([]);
   };
 
   const handleNotifyNonVoters = async () => {
@@ -402,9 +456,9 @@ export default function VotesScreen() {
                   return (
                     <TouchableOpacity
                       key={item.id}
-                      onPress={() => !isExpired && !hasResponses && toggleSelect(item.id)}
-                      disabled={isExpired || hasResponses}
-                      className={`mb-2 p-3 rounded-lg border-2 ${isSelected ? 'bg-indigo-50 border-indigo-500' : 'border-gray-200 bg-white'} ${(isExpired || hasResponses) ? 'opacity-70' : ''}`}
+                      onPress={() => !isExpired && toggleSelect(item.id)}
+                      disabled={isExpired}
+                      className={`mb-2 p-3 rounded-lg border-2 ${isSelected ? 'bg-indigo-50 border-indigo-500' : 'border-gray-200 bg-white'} ${isExpired ? 'opacity-70' : ''}`}
                     >
                       <View className="flex-row items-center justify-between">
                         <Text className={`text-sm font-medium flex-1 ${isSelected ? 'text-indigo-700' : 'text-gray-800'}`}>{item.label}</Text>
@@ -417,7 +471,6 @@ export default function VotesScreen() {
                           )}
                         </View>
                       </View>
-                      {hasResponses && <Text className="text-xs text-red-500 mt-1">⚠️ {responseCount}명이 투표했으므로 수정/삭제 불가</Text>}
                     </TouchableOpacity>
                   );
                 })}

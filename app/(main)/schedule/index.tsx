@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-import { View, Text, ScrollView, FlatList, TouchableOpacity, Alert, Modal, Linking } from 'react-native';
-import { router } from 'expo-router';
+import { View, Text, ScrollView, FlatList, TouchableOpacity, Alert, Modal, Linking, BackHandler } from 'react-native';
+import { router, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Calendar, DateData } from 'react-native-calendars';
 import { format, parse, setDate } from 'date-fns';
@@ -125,6 +125,35 @@ export default function ScheduleScreen() {
       if (data) setAllMembers(data);
     });
   }, [fetchSchedules]);
+
+  // 안드로이드 뒤로가기: 모달 순서대로 닫기 (가장 위에 있는 모달부터)
+  useFocusEffect(
+    useCallback(() => {
+      const onBackPress = () => {
+        if (showYearMonthPicker) { setShowYearMonthPicker(false); return true; }
+        if (voteShowNonVotersModal) { setVoteShowNonVotersModal(false); setVoteSelectedNonVoters(new Set()); return true; }
+        if (voteShowParticipants) { setVoteShowParticipants(false); return true; }
+        if (showVoteDetailModal) {
+          if (voteIsEditing) { setVoteIsEditing(false); return true; }
+          setShowVoteDetailModal(false);
+          return true;
+        }
+        if (showCreateVote) { setShowCreateVote(false); return true; }
+        if (showSongDetail) { setShowSongDetail(false); setSelectedSongDetail(null); return true; }
+        if (showSongPicker) { setShowSongPicker(false); return true; }
+        if (showCreate) { setShowCreate(false); return true; }
+        if (showScheduleDetail) {
+          if (editingSchedule) { setEditingSchedule(false); return true; }
+          setShowScheduleDetail(false);
+          return true;
+        }
+        return false;
+      };
+      const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+      return () => sub.remove();
+    }, [showYearMonthPicker, voteShowNonVotersModal, voteShowParticipants, showVoteDetailModal, voteIsEditing,
+        showCreateVote, showSongDetail, showSongPicker, showCreate, showScheduleDetail, editingSchedule])
+  );
 
   // 투표 등 다른 화면에서 날짜 지정 후 이동 시 반영
   useEffect(() => {

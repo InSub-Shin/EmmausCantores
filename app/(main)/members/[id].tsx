@@ -128,11 +128,11 @@ export default function MemberDetailScreen() {
 
       <ScrollView contentContainerStyle={{ padding: 20 }} keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets>
         {/* 프로필 헤더 */}
-        <View className="items-center mb-4 bg-indigo-600 rounded-2xl p-4">
+        <View className="items-center mb-4 bg-white rounded-2xl p-4">
           <View className="w-20 h-20 bg-indigo-400 rounded-full items-center justify-center mb-3">
             <Text className="text-4xl">{member.part === 'soprano' || member.part === 'alto' ? '👩' : '👨'}</Text>
           </View>
-          <Text className="text-white text-base font-medium mt-1">
+          <Text className="text-gray-900 text-base font-medium mt-1">
             {member.baptismal_name || '-'}
           </Text>
           <View className="flex-row gap-2 mt-3">

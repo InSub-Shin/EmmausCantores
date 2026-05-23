@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-import { View, Text, FlatList, TouchableOpacity, TextInput, RefreshControl, Alert, Modal, ScrollView } from 'react-native';
-import { router } from 'expo-router';
+import { View, Text, FlatList, TouchableOpacity, TextInput, RefreshControl, Alert, Modal, ScrollView, BackHandler } from 'react-native';
+import { router, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Crypto from 'expo-crypto';
 import { supabase } from '@/lib/supabase';
@@ -49,6 +49,17 @@ export default function MembersScreen() {
     if (search) result = result.filter((m) => m.name?.includes(search) || m.baptismal_name?.includes(search));
     setFiltered(result);
   }, [members, selectedPart, search]);
+
+  useFocusEffect(
+    useCallback(() => {
+      const onBackPress = () => {
+        if (showAdd) { setShowAdd(false); return true; }
+        return false;
+      };
+      const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+      return () => sub.remove();
+    }, [showAdd])
+  );
 
   const onRefresh = async () => { setRefreshing(true); await fetchMembers(); setRefreshing(false); };
 

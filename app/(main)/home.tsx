@@ -50,12 +50,14 @@ export default function HomeScreen() {
         .limit(10);
 
       if (allVotes && profile) {
-        // 사용자가 투표하지 않은 투표 필터링
+        // 미참여 + 진행 중인 투표만 필터링
+        const now = new Date();
         const unvoted = allVotes.filter((vote: any) => {
           const hasVoted = vote.items?.some((item: any) =>
             item.responses?.some((r: any) => r.user_id === profile.id)
           );
-          return !hasVoted;
+          const isExpired = vote.ends_at && new Date(vote.ends_at) < now;
+          return !hasVoted && !isExpired;
         });
         setUnreadVotes(unvoted as unknown as Vote[]);
       }

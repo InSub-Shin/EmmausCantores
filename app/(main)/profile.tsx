@@ -1,6 +1,6 @@
-import { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Alert } from 'react-native';
-import { router } from 'expo-router';
+import { useState, useCallback } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, Alert, BackHandler } from 'react-native';
+import { router, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import { supabase } from '@/lib/supabase';
@@ -26,6 +26,17 @@ export default function ProfileScreen() {
     part: profile?.part ?? null as Part | null,
   });
   const [saving, setSaving] = useState(false);
+
+  useFocusEffect(
+    useCallback(() => {
+      const onBackPress = () => {
+        if (editing) { setEditing(false); return true; }
+        return false;
+      };
+      const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+      return () => sub.remove();
+    }, [editing])
+  );
 
   const handleSave = async () => {
     if (!profile) return;

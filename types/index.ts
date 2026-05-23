@@ -125,5 +125,6 @@ export interface SongFile {
   file_name: string;
   file_url: string;
   file_type: string | null;
+  label: string | null;   // 파트 레이블 (전체/소프라노/알토/테너/베이스)
   created_at: string;
 }
