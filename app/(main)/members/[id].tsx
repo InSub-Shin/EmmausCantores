@@ -128,7 +128,7 @@ export default function MemberDetailScreen() {
 
       <ScrollView contentContainerStyle={{ padding: 20 }} keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets>
         {/* 프로필 헤더 */}
-        <Card className="items-center mb-4 bg-indigo-600">
+        <View className="items-center mb-4 bg-indigo-600 rounded-2xl p-4">
           <View className="w-20 h-20 bg-indigo-400 rounded-full items-center justify-center mb-3">
             <Text className="text-4xl">{member.part === 'soprano' || member.part === 'alto' ? '👩' : '👨'}</Text>
           </View>
@@ -141,7 +141,7 @@ export default function MemberDetailScreen() {
               <Text className="text-white text-xs">{ROLE_LABELS[member.role]}</Text>
             </View>
           </View>
-        </Card>
+        </View>
 
         {editing ? (
           <Card>
