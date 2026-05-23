@@ -31,6 +31,7 @@
 - 만료된 투표는 알림에서 자동 제외
 - 알림 클릭 시 해당 상세 모달 자동 오픈
 - 주요 메뉴 바로가기 (단원 / 투표 / 일정 / 특송)
+- SNS 바로가기 (YouTube · Instagram)
 
 ### 👥 단원 관리
 - 단원 목록 (파트별 필터, 이름/세례명 검색)
@@ -240,6 +241,41 @@ EXPO_PUBLIC_KAKAO_NATIVE_APP_KEY=your-kakao-native-key
 - **Supabase Dashboard** — DB 관리 및 쿼리
 - **Expo Go** — 실기기 테스트
 - **Git / GitHub** — 버전 관리
+
+---
+
+## 🚢 배포
+
+### EAS Build (Expo Application Services)
+
+```bash
+# Android (AAB → Play Store)
+eas build --platform android --profile production
+
+# iOS (IPA → App Store)
+eas build --platform ios --profile production
+```
+
+### 스토어 제출
+
+```bash
+eas submit --platform android
+eas submit --platform ios
+```
+
+| 플랫폼 | 상태 |
+|--------|------|
+| Android (Play Store) | ✅ 빌드 완료 |
+| iOS (App Store) | 🔄 진행 예정 |
+
+---
+
+## 🔗 SNS
+
+| 채널 | 링크 |
+|------|------|
+| YouTube | [@EmmausCantores](https://www.youtube.com/@EmmausCantores) |
+| Instagram | [@_emmauss](https://www.instagram.com/_emmauss/) |
 
 ---
 
