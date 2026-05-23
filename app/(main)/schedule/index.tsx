@@ -77,14 +77,18 @@ export default function ScheduleScreen() {
   const fetchScheduleDetail = useCallback(async (scheduleId: string) => {
     const { data } = await supabase
       .from('schedules')
-      .select('*, creator:profiles!created_by(name), song:songs(*, files:song_files(*)), songs:schedule_songs(order, songs(*, files:song_files(*)))')
+      .select('*, creator:profiles!created_by(name), song:songs!song_id(*, files:song_files(*)), songs:schedule_songs(order, songs!song_id(*, files:song_files(*)))')
       .eq('id', scheduleId)
       .single();
     if (data) {
-      // Transform schedule_songs relationship
+      // Transform schedule_songs relationship: [{order, songs: {...}}] → [song, song, ...]
+      const scheduleSongs = (data.songs || [])
+        .sort((a: any, b: any) => (a.order || 0) - (b.order || 0))
+        .map((ss: any) => ss.songs)
+        .filter(Boolean);
       const transformed = {
         ...data,
-        songs: (data.songs || []).sort((a: any, b: any) => (a.order || 0) - (b.order || 0)).map((ss: any) => ss.songs),
+        songs: scheduleSongs,
       };
       setSelectedSchedule(transformed as unknown as Schedule);
       return transformed;
@@ -94,7 +98,7 @@ export default function ScheduleScreen() {
   const fetchVoteDetail = useCallback(async (voteId: string) => {
     const { data } = await supabase
       .from('votes')
-      .select(`*, creator:profiles!created_by(name), items:vote_items(*, responses:vote_responses(*, profile:profiles(id, name, part)))`)
+      .select(`*, creator:profiles!created_by(name), items:vote_items(*, responses:vote_responses(*, profile:profiles(id, name, part))), schedule:schedules(id, title, start_at)`)
       .eq('id', voteId)
       .single();
     if (data) setSelectedVoteDetail(data as unknown as Vote);
