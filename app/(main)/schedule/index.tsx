@@ -3,7 +3,7 @@ import { View, Text, ScrollView, FlatList, TouchableOpacity, Alert, Modal, Linki
 import { router, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Calendar, DateData } from 'react-native-calendars';
-import { format, parse } from 'date-fns';
+import { format, parse, eachDayOfInterval } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import * as Crypto from 'expo-crypto';
 import { supabase } from '@/lib/supabase';
@@ -210,9 +210,14 @@ export default function ScheduleScreen() {
   const markedDates = schedules.reduce<Record<string, { dots: { color: string }[]; selected?: boolean; selectedColor?: string }>>((acc, s) => {
     if (!s.start_at) return acc;
     try {
-      const dateKey = toLocalDateStr(s.start_at);
-      if (!acc[dateKey]) acc[dateKey] = { dots: [] };
-      acc[dateKey].dots = [...(acc[dateKey].dots ?? []), { color: '#4f46e5' }];
+      const startKey = toLocalDateStr(s.start_at);
+      const endKey = s.end_at ? toLocalDateStr(s.end_at) : startKey;
+      const days = eachDayOfInterval({ start: new Date(startKey), end: new Date(endKey) });
+      for (const day of days) {
+        const dateKey = format(day, 'yyyy-MM-dd');
+        if (!acc[dateKey]) acc[dateKey] = { dots: [] };
+        acc[dateKey].dots = [...(acc[dateKey].dots ?? []), { color: '#4f46e5' }];
+      }
     } catch (e) {
       console.warn('Error processing schedule date:', s.start_at);
     }
@@ -239,7 +244,12 @@ export default function ScheduleScreen() {
   }
 
   // 선택된 날짜의 일정·생일·축일
-  const daySchedules = selectedDate ? schedules.filter((s) => s.start_at && toLocalDateStr(s.start_at) === selectedDate) : [];
+  const daySchedules = selectedDate ? schedules.filter((s) => {
+    if (!s.start_at) return false;
+    const startKey = toLocalDateStr(s.start_at);
+    const endKey = s.end_at ? toLocalDateStr(s.end_at) : startKey;
+    return selectedDate >= startKey && selectedDate <= endKey;
+  }) : [];
   const dayBirthdays = selectedDate ? (birthdayMap[selectedDate] ?? []) : [];
   const dayFeastDays = selectedDate ? (feastDayMap[selectedDate] ?? []) : [];
 
