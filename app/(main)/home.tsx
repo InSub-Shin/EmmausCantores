@@ -1,4 +1,4 @@
-import { View, Text, ScrollView, TouchableOpacity, Alert, FlatList } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Alert, FlatList, Linking } from 'react-native';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuthStore } from '@/store/auth';
@@ -286,6 +286,33 @@ export default function HomeScreen() {
             >
               <Text className="text-3xl mb-2">{item.icon}</Text>
               <Text className="text-gray-700 font-medium text-sm">{item.label}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        {/* SNS */}
+        <Text className="text-lg font-bold text-gray-800 mb-3">SNS</Text>
+        <View className="flex-row gap-3 mb-6">
+          {[
+            {
+              label: 'YouTube',
+              icon: '▶',
+              color: 'bg-red-500',
+              url: 'https://www.youtube.com/@EmmausCantores',
+            },
+            {
+              label: 'Instagram',
+              icon: '📷',
+              color: 'bg-gradient-to-br from-purple-500 to-pink-500 bg-pink-500',
+              url: 'https://www.instagram.com/_emmauss/',
+            },
+          ].map((item) => (
+            <TouchableOpacity
+              key={item.label}
+              onPress={() => Linking.openURL(item.url)}
+              className={`flex-1 ${item.color} rounded-2xl p-4 flex-row items-center justify-center gap-2`}
+            >
+              <Text className="text-white text-base font-bold">{item.icon} {item.label}</Text>
             </TouchableOpacity>
           ))}
         </View>
