@@ -572,7 +572,7 @@ export default function ScheduleScreen() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50">
+    <SafeAreaView edges={['top']} className="flex-1 bg-gray-50">
       <View className="px-5 pt-4 pb-2 flex-row items-center justify-between">
         <Text className="text-2xl font-bold text-gray-900">일정</Text>
         {profile?.is_executive && (

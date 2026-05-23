@@ -132,7 +132,7 @@ export default function HomeScreen() {
   const unreadCount = unreadVotes.length + unreadSongs.length;
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50">
+    <SafeAreaView edges={['top']} className="flex-1 bg-gray-50">
       <ScrollView className="flex-1" contentContainerStyle={{ padding: 20 }}>
         {/* 헤더 */}
         <View className="flex-row items-center justify-between mb-6">

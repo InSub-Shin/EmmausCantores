@@ -322,7 +322,7 @@ export default function VotesScreen() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50">
+    <SafeAreaView edges={['top']} className="flex-1 bg-gray-50">
       <View className="flex-row items-center justify-between px-5 pt-4 pb-3">
         <Text className="text-2xl font-bold text-gray-900">투표</Text>
         {profile?.is_executive && (

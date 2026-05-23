@@ -227,7 +227,7 @@ export default function VoteDetailScreen() {
   const totalVoters = voterIds.size;
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50">
+    <SafeAreaView edges={['top']} className="flex-1 bg-gray-50">
       <View className="flex-row items-center justify-between px-5 pt-4 pb-3">
         <View className="flex-row items-center flex-1">
           <TouchableOpacity onPress={() => router.back()} className="mr-3">

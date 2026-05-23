@@ -73,7 +73,7 @@ export default function ProfileScreen() {
   if (!profile) return null;
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50">
+    <SafeAreaView edges={['top']} className="flex-1 bg-gray-50">
       <View className="flex-row items-center px-5 pt-4 pb-3">
         <TouchableOpacity onPress={() => router.back()} className="mr-3">
           <Text className="text-indigo-600 text-base">← 뒤로</Text>

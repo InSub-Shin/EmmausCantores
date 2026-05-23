@@ -256,7 +256,7 @@ export default function SongsScreen() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50">
+    <SafeAreaView edges={['top']} className="flex-1 bg-gray-50">
       <View className="flex-row items-center justify-between px-5 pt-4 pb-2">
         <Text className="text-2xl font-bold text-gray-900">특송 정보</Text>
         {profile?.is_executive && (
