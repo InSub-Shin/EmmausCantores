@@ -126,6 +126,14 @@ export default function ScheduleScreen() {
     });
   }, [fetchSchedules]);
 
+  // 투표 등 다른 화면에서 날짜 지정 후 이동 시 반영
+  useEffect(() => {
+    if (autoSelectDate) {
+      setSelectedDate(autoSelectDate);
+      setDisplayedMonth(autoSelectDate);
+      setAutoSelectDate(null);
+    }
+  }, [autoSelectDate]);
 
   // 달력 마킹 데이터 생성
   const markedDates = schedules.reduce<Record<string, { dots: { color: string }[]; selected?: boolean; selectedColor?: string }>>((acc, s) => {
