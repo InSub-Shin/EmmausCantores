@@ -164,6 +164,45 @@ export default function ScheduleScreen() {
     }
   }, [autoSelectDate]);
 
+  // 화면 포커스 시 일정·단원 정보 새로고침 (새 단원 추가 시 생일/축일 자동 반영)
+  useFocusEffect(
+    useCallback(() => {
+      fetchSchedules();
+      supabase
+        .from('profiles')
+        .select('id, name, birthday, feast_day, is_deleted, part, push_token')
+        .then(({ data }) => { if (data) setAllMembers(data); });
+    }, [fetchSchedules])
+  );
+
+  // 생일/축일 연도별 날짜 계산 (윤년 2월 29일 처리 포함)
+  const displayYear = displayedMonth ? parseInt(displayedMonth.split('-')[0]) : new Date().getFullYear();
+
+  const getYearlyDateKey = (mmdd: string, year: number): string => {
+    const [m, d] = mmdd.split('-');
+    if (m === '02' && d === '29') {
+      const isLeap = (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
+      return `${year}-02-${isLeap ? '29' : '28'}`;
+    }
+    return `${year}-${mmdd}`;
+  };
+
+  const birthdayMap: Record<string, string[]> = {};
+  const feastDayMap: Record<string, string[]> = {};
+  allMembers.filter((m: any) => !m.is_deleted).forEach((member: any) => {
+    if (member.birthday) {
+      const mmdd = (member.birthday as string).slice(5); // YYYY-MM-DD → MM-DD
+      const key = getYearlyDateKey(mmdd, displayYear);
+      if (!birthdayMap[key]) birthdayMap[key] = [];
+      birthdayMap[key].push(member.name);
+    }
+    if (member.feast_day) {
+      const key = getYearlyDateKey(member.feast_day, displayYear);
+      if (!feastDayMap[key]) feastDayMap[key] = [];
+      feastDayMap[key].push(member.name);
+    }
+  });
+
   // 달력 마킹 데이터 생성
   const markedDates = schedules.reduce<Record<string, { dots: { color: string }[]; selected?: boolean; selectedColor?: string }>>((acc, s) => {
     if (!s.start_at) return acc;
@@ -177,6 +216,18 @@ export default function ScheduleScreen() {
     return acc;
   }, {});
 
+  // 생일 도트 추가 (핑크)
+  Object.keys(birthdayMap).forEach((dateKey) => {
+    if (!markedDates[dateKey]) markedDates[dateKey] = { dots: [] };
+    markedDates[dateKey].dots = [...markedDates[dateKey].dots, { color: '#ec4899' }];
+  });
+
+  // 축일 도트 추가 (앰버)
+  Object.keys(feastDayMap).forEach((dateKey) => {
+    if (!markedDates[dateKey]) markedDates[dateKey] = { dots: [] };
+    markedDates[dateKey].dots = [...markedDates[dateKey].dots, { color: '#f59e0b' }];
+  });
+
   // 선택된 날짜 표시
   if (selectedDate && markedDates[selectedDate]) {
     markedDates[selectedDate] = { ...markedDates[selectedDate], selected: true, selectedColor: '#4f46e5' };
@@ -184,8 +235,10 @@ export default function ScheduleScreen() {
     markedDates[selectedDate] = { dots: [], selected: true, selectedColor: '#4f46e5' };
   }
 
-  // 선택된 날짜의 일정
+  // 선택된 날짜의 일정·생일·축일
   const daySchedules = selectedDate ? schedules.filter((s) => s.start_at && s.start_at.slice(0, 10) === selectedDate) : [];
+  const dayBirthdays = selectedDate ? (birthdayMap[selectedDate] ?? []) : [];
+  const dayFeastDays = selectedDate ? (feastDayMap[selectedDate] ?? []) : [];
 
   const handleCreate = async () => {
     if (!form.title.trim() || !form.start_at) {
@@ -649,6 +702,21 @@ export default function ScheduleScreen() {
               }}
               style={{ marginBottom: 4 }}
             />
+            {/* 범례 */}
+            <View className="flex-row gap-4 px-4 pb-3">
+              <View className="flex-row items-center gap-1.5">
+                <View className="w-2 h-2 rounded-full bg-indigo-500" />
+                <Text className="text-xs text-gray-400">일정</Text>
+              </View>
+              <View className="flex-row items-center gap-1.5">
+                <View className="w-2 h-2 rounded-full bg-pink-500" />
+                <Text className="text-xs text-gray-400">생일</Text>
+              </View>
+              <View className="flex-row items-center gap-1.5">
+                <View className="w-2 h-2 rounded-full bg-amber-500" />
+                <Text className="text-xs text-gray-400">축일</Text>
+              </View>
+            </View>
           </View>
         )}
 
@@ -658,6 +726,30 @@ export default function ScheduleScreen() {
             <Text className="text-base font-bold text-gray-800 mb-3">
               {format(new Date(selectedDate), 'M월 d일 (EEE)', { locale: ko })} 일정
             </Text>
+
+            {/* 생일 / 축일 */}
+            {(dayBirthdays.length > 0 || dayFeastDays.length > 0) && (
+              <View className="mb-3">
+                {dayBirthdays.map((name, i) => (
+                  <View key={`bday-${i}`} className="flex-row items-center bg-pink-50 border border-pink-100 rounded-xl px-3 py-2.5 mb-1.5">
+                    <Text className="mr-2 text-base">🎂</Text>
+                    <View className="flex-1">
+                      <Text className="text-pink-700 font-semibold text-sm">{name}</Text>
+                      <Text className="text-pink-400 text-xs">생일</Text>
+                    </View>
+                  </View>
+                ))}
+                {dayFeastDays.map((name, i) => (
+                  <View key={`feast-${i}`} className="flex-row items-center bg-amber-50 border border-amber-100 rounded-xl px-3 py-2.5 mb-1.5">
+                    <Text className="mr-2 text-base">✝️</Text>
+                    <View className="flex-1">
+                      <Text className="text-amber-700 font-semibold text-sm">{name}</Text>
+                      <Text className="text-amber-400 text-xs">축일</Text>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            )}
 
           {daySchedules.length === 0 ? (
             <View className="items-center py-8">
