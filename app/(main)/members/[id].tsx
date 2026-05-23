@@ -132,10 +132,9 @@ export default function MemberDetailScreen() {
           <View className="w-20 h-20 bg-indigo-400 rounded-full items-center justify-center mb-3">
             <Text className="text-4xl">{member.part === 'soprano' || member.part === 'alto' ? '👩' : '👨'}</Text>
           </View>
-          <Text className="text-white text-2xl font-bold">{member.name}</Text>
-          {member.baptismal_name && (
-            <Text className="text-white text-base font-bold mt-1">{member.baptismal_name}</Text>
-          )}
+          <Text className="text-white text-base font-medium mt-1">
+            {member.baptismal_name || '-'}
+          </Text>
           <View className="flex-row gap-2 mt-3">
             {member.part && <View className="bg-indigo-500 rounded-full px-3 py-1"><Text className="text-white text-xs">{PART_LABELS[member.part]}</Text></View>}
             <View className={`rounded-full px-3 py-1 ${member.is_executive ? 'bg-amber-500' : 'bg-indigo-500'}`}>
