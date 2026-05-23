@@ -99,7 +99,7 @@ export default function ProfileScreen() {
         <Card className="mb-4 bg-indigo-600 items-center">
           <Text className="text-white text-xl font-bold">{profile.name}</Text>
           {profile.baptismal_name && (
-            <Text className="text-white text-base font-bold mt-1">{profile.baptismal_name}</Text>
+            <Text className="text-base font-bold mt-1">{profile.baptismal_name}</Text>
           )}
           <View className="flex-row gap-2 mt-3">
             {profile.part && <View className="bg-indigo-500 rounded-full px-3 py-1"><Text className="text-white text-xs">{PART_LABELS[profile.part]}</Text></View>}
