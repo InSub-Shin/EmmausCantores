@@ -269,7 +269,7 @@ export default function HomeScreen() {
           )}
         </View>
 
-        {/* 바로가기 메뉴 */}
+        {/* 바로가기 메뉴 (숨김 처리 - 필요 시 주석 해제)
         <Text className="text-lg font-bold text-gray-800 mb-3">바로가기</Text>
         <View className="flex-row flex-wrap gap-3 mb-6">
           {[
@@ -289,6 +289,7 @@ export default function HomeScreen() {
             </TouchableOpacity>
           ))}
         </View>
+        */}
 
         {/* SNS */}
         <Text className="text-lg font-bold text-gray-800 mb-3">SNS</Text>
