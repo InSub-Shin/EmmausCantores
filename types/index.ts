@@ -116,6 +116,14 @@ export interface Schedule {
   songs?: Song[] | null;
 }
 
+export interface SongReaction {
+  id: string;
+  song_id: string;
+  user_id: string;
+  emoji: string;
+  created_at: string;
+}
+
 export interface Song {
   id: string;
   title: string;
@@ -127,6 +135,7 @@ export interface Song {
   created_at: string;
   creator?: Profile;
   files?: SongFile[];
+  reactions?: SongReaction[];
 }
 
 export interface SongFile {

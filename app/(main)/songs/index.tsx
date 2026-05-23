@@ -8,13 +8,14 @@ import { ko } from 'date-fns/locale';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/store/auth';
 import { useHomeNavigationStore } from '@/store/home-navigation';
-import { Song, SongFile } from '@/types';
+import { Song, SongFile, SongReaction } from '@/types';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 
 type FileItem = { name: string; uri: string; type: string; label: string };
 const SHEET_PARTS = ['전체', '소프라노', '알토', '테너', '베이스'] as const;
+const REACTION_EMOJIS = ['👏', '❤️', '🔥', '😊', '🎵', '🙏', '✨', '😭'] as const;
 
 export default function SongsScreen() {
   const { profile } = useAuthStore();
@@ -40,7 +41,7 @@ export default function SongsScreen() {
   const fetchSongs = useCallback(async () => {
     const { data } = await supabase
       .from('songs')
-      .select('id, title, description, youtube_url, youtube_links, youtube_titles, created_by, created_at, creator:profiles!created_by(name)')
+      .select('id, title, description, youtube_url, youtube_links, youtube_titles, created_by, created_at, creator:profiles!created_by(name), reactions:song_reactions(id, user_id, emoji)')
       .order('created_at', { ascending: false });
     if (data) setSongs(data as unknown as Song[]);
   }, []);
@@ -77,13 +78,8 @@ export default function SongsScreen() {
       setEditingSong(false);
       setEditFiles([]);
       setEditFilesToDelete([]);
-      supabase
-        .from('songs')
-        .select('*, files:song_files(*), creator:profiles!created_by(name)')
-        .eq('id', songId)
-        .single()
-        .then(({ data }) => {
-          const song = (data as unknown as Song) ?? homeSelectedSong;
+      fetchSongDetail(songId).then((data) => {
+          const song = data ?? homeSelectedSong;
           setSelectedSong(song);
           setEditForm({ title: song.title || '', description: song.description || '' });
           setEditYoutubeUrls(song.youtube_links && song.youtube_links.length > 0 ? song.youtube_links : ['']);
@@ -238,21 +234,40 @@ export default function SongsScreen() {
     ]);
   };
 
+  const fetchSongDetail = async (songId: string) => {
+    const { data } = await supabase
+      .from('songs')
+      .select('*, files:song_files(*), creator:profiles!created_by(name), reactions:song_reactions(id, user_id, emoji)')
+      .eq('id', songId)
+      .single();
+    return data as unknown as Song | null;
+  };
+
   const openSongDetail = async (song: Song) => {
     setEditingSong(false);
     setEditFiles([]);
     setEditFilesToDelete([]);
-    const { data } = await supabase
-      .from('songs')
-      .select('*, files:song_files(*), creator:profiles!created_by(name)')
-      .eq('id', song.id)
-      .single();
-    const fullSong = (data as unknown as Song) ?? song;
+    const fullSong = (await fetchSongDetail(song.id)) ?? song;
     setSelectedSong(fullSong);
     setEditForm({ title: fullSong.title, description: fullSong.description || '' });
     setEditYoutubeUrls(fullSong.youtube_links && fullSong.youtube_links.length > 0 ? fullSong.youtube_links : ['']);
     setEditYoutubeTitles(fullSong.youtube_titles && fullSong.youtube_titles.length > 0 ? fullSong.youtube_titles : ['전체']);
     setShowSongDetail(true);
+  };
+
+  const handleToggleReaction = async (emoji: string) => {
+    if (!selectedSong || !profile) return;
+    const existing = selectedSong.reactions?.find((r) => r.user_id === profile.id && r.emoji === emoji);
+    if (existing) {
+      await supabase.from('song_reactions').delete().eq('id', existing.id);
+    } else {
+      await supabase.from('song_reactions').insert({ song_id: selectedSong.id, user_id: profile.id, emoji });
+    }
+    const updated = await fetchSongDetail(selectedSong.id);
+    if (updated) {
+      setSelectedSong(updated);
+      setSongs((prev) => prev.map((s) => s.id === updated.id ? { ...s, reactions: updated.reactions } : s));
+    }
   };
 
   return (
@@ -470,6 +485,30 @@ export default function SongsScreen() {
                     ))}
                   </View>
                 )}
+                {/* 이모지 반응 */}
+                <View className="mt-4 pt-4 border-t border-gray-100">
+                  <Text className="text-xs font-semibold text-gray-500 mb-2">반응</Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                    <View className="flex-row gap-2">
+                      {REACTION_EMOJIS.map((emoji) => {
+                        const count = selectedSong?.reactions?.filter((r) => r.emoji === emoji).length ?? 0;
+                        const reacted = selectedSong?.reactions?.some((r) => r.user_id === profile?.id && r.emoji === emoji) ?? false;
+                        return (
+                          <TouchableOpacity
+                            key={emoji}
+                            onPress={() => handleToggleReaction(emoji)}
+                            className={`flex-row items-center px-3 py-1.5 rounded-full border ${reacted ? 'bg-indigo-100 border-indigo-400' : 'bg-gray-100 border-gray-200'}`}
+                          >
+                            <Text className="text-base">{emoji}</Text>
+                            {count > 0 && (
+                              <Text className={`text-xs font-semibold ml-1 ${reacted ? 'text-indigo-700' : 'text-gray-500'}`}>{count}</Text>
+                            )}
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  </ScrollView>
+                </View>
               </Card>
             </ScrollView>
           ) : (
@@ -667,6 +706,23 @@ function SongCard({ song }: { song: Song }) {
           ))}
         </View>
       )}
+
+      {song.reactions && song.reactions.length > 0 && (() => {
+        const counts: Record<string, number> = {};
+        for (const r of song.reactions) counts[r.emoji] = (counts[r.emoji] ?? 0) + 1;
+        const entries = REACTION_EMOJIS.filter((e) => counts[e]).map((e) => ({ emoji: e, count: counts[e] }));
+        if (!entries.length) return null;
+        return (
+          <View className="flex-row flex-wrap gap-1.5 mt-2 pt-2 border-t border-gray-100">
+            {entries.map(({ emoji, count }) => (
+              <View key={emoji} className="flex-row items-center bg-gray-100 rounded-full px-2 py-0.5">
+                <Text className="text-sm">{emoji}</Text>
+                <Text className="text-xs text-gray-500 ml-0.5 font-medium">{count}</Text>
+              </View>
+            ))}
+          </View>
+        );
+      })()}
     </Card>
   );
 }
