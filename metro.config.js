@@ -4,15 +4,22 @@ const path = require('path');
 
 const config = getDefaultConfig(__dirname);
 
-// Transpile @supabase packages so Babel converts dynamic import() to require()
-// which Hermes supports. Without this, import(variable) in supabase's optional
-// OpenTelemetry integration causes hermesc to fail.
-config.transformer.transformIgnorePatterns = [
-  'node_modules/(?!(react-native|@react-native(-community)?|expo(nent)?|@expo(nent)?(\/.+)?|nativewind|react-native-reanimated|react-native-worklets|react-native-screens|react-native-safe-area-context|@supabase)/)' ,
-];
+// Metro picks up @supabase/supabase-js's ESM entry (index.mjs) via the
+// package.json "exports" field. That ESM build contains `import(OTEL_PKG)`
+// with a variable argument, which hermesc cannot compile. Force Metro to use
+// the CJS entry (index.cjs) which uses require() instead.
+config.resolver.resolveRequest = (context, moduleName, platform) => {
+  if (moduleName === '@supabase/supabase-js') {
+    return {
+      filePath: path.resolve(__dirname, 'node_modules/@supabase/supabase-js/dist/index.cjs'),
+      type: 'sourceFile',
+    };
+  }
+  return context.resolveRequest(context, moduleName, platform);
+};
 
-// Stub out @opentelemetry/api — supabase tries to load it optionally via
-// dynamic import; we provide an empty module so require() succeeds at runtime.
+// The CJS build calls require('@opentelemetry/api') inside a try/catch for
+// optional telemetry. Provide an empty stub so the require() doesn't throw.
 config.resolver.extraNodeModules = {
   '@opentelemetry/api': path.resolve(__dirname, './otel-mock.js'),
 };
