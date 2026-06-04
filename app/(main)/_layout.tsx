@@ -40,6 +40,7 @@ export default function MainLayout() {
     >
       <Tabs.Screen name="home" options={{ title: '홈', tabBarIcon: ({ focused }) => <TabIcon icon="🏠" focused={focused} /> }} />
       <Tabs.Screen name="members" options={{ title: '단원', tabBarIcon: ({ focused }) => <TabIcon icon="👥" focused={focused} /> }} />
+      <Tabs.Screen name="posts/index" options={{ title: '게시판', tabBarIcon: ({ focused }) => <TabIcon icon="📋" focused={focused} /> }} />
       <Tabs.Screen name="votes" options={{ title: '투표', tabBarIcon: ({ focused }) => <TabIcon icon="🗳️" focused={focused} /> }} />
       <Tabs.Screen name="schedule/index" options={{ title: '일정', tabBarIcon: ({ focused }) => <TabIcon icon="📅" focused={focused} /> }} />
       <Tabs.Screen name="songs/index" options={{ title: '특송', tabBarIcon: ({ focused }) => <TabIcon icon="🎵" focused={focused} /> }} />

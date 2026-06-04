@@ -147,3 +147,30 @@ export interface SongFile {
   label: string | null;   // 파트 레이블 (전체/소프라노/알토/테너/베이스)
   created_at: string;
 }
+
+export interface Post {
+  id: string;
+  title: string;
+  content: string;
+  is_notice: boolean;
+  vote_id: string | null;
+  song_ids: string[];
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+  creator?: Pick<Profile, 'id' | 'name'>;
+  vote?: Pick<Vote, 'id' | 'title'> | null;
+  songs?: Pick<Song, 'id' | 'title'>[];
+  comments?: PostComment[];
+  is_read?: boolean;
+}
+
+export interface PostComment {
+  id: string;
+  post_id: string;
+  user_id: string;
+  content: string;
+  created_at: string;
+  updated_at: string;
+  author?: Pick<Profile, 'id' | 'name'>;
+}

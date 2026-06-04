@@ -6,7 +6,7 @@ import { useHomeNavigationStore } from '@/store/home-navigation';
 import { useCallback, useEffect, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '@/lib/supabase';
-import { Vote, Song } from '@/types';
+import { Vote, Song, Post } from '@/types';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { format } from 'date-fns';
@@ -14,9 +14,10 @@ import { ko } from 'date-fns/locale';
 
 export default function HomeScreen() {
   const { profile, signOut } = useAuthStore();
-  const { setSelectedVote, setSelectedSong } = useHomeNavigationStore();
+  const { setSelectedVote, setSelectedSong, setSelectedPost } = useHomeNavigationStore();
   const [unreadVotes, setUnreadVotes] = useState<Vote[]>([]);
   const [unreadSongs, setUnreadSongs] = useState<Song[]>([]);
+  const [unreadPosts, setUnreadPosts] = useState<Post[]>([]);
   const [viewedSongIds, setViewedSongIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
 
@@ -66,6 +67,28 @@ export default function HomeScreen() {
     }
   }, [profile]);
 
+  // 미확인 게시글 조회
+  const fetchUnreadPosts = useCallback(async () => {
+    if (!profile) return;
+    try {
+      const [{ data: postsData }, { data: readsData }] = await Promise.all([
+        supabase
+          .from('posts')
+          .select('id, title, is_notice, created_at, creator:profiles!created_by(id, name)')
+          .order('created_at', { ascending: false })
+          .limit(10),
+        supabase.from('post_reads').select('post_id').eq('user_id', profile.id),
+      ]);
+      if (postsData) {
+        const readIds = new Set((readsData ?? []).map((r: any) => r.post_id));
+        const unread = (postsData as any[]).filter((p) => !readIds.has(p.id));
+        setUnreadPosts(unread as Post[]);
+      }
+    } catch (e) {
+      console.error('게시글 조회 오류:', e);
+    }
+  }, [profile]);
+
   // 미확인 특송 조회
   const fetchUnreadSongs = useCallback(async () => {
     try {
@@ -97,12 +120,13 @@ export default function HomeScreen() {
     initialize();
   }, []);
 
-  // 프로필이 있을 때 미확인 투표 로드
+  // 프로필이 있을 때 미확인 투표/게시글 로드
   useEffect(() => {
     if (profile?.id) {
       fetchUnreadVotes();
+      fetchUnreadPosts();
     }
-  }, [profile?.id, fetchUnreadVotes]);
+  }, [profile?.id, fetchUnreadVotes, fetchUnreadPosts]);
 
   // viewedSongIds 변경 시 미확인 특송 로드
   useEffect(() => {
@@ -129,7 +153,7 @@ export default function HomeScreen() {
     setUnreadVotes((prev) => prev.filter((v) => v.id !== voteId));
   }, []);
 
-  const unreadCount = unreadVotes.length + unreadSongs.length;
+  const unreadCount = unreadVotes.length + unreadSongs.length + unreadPosts.length;
 
   return (
     <SafeAreaView edges={['top']} className="flex-1 bg-gray-50">
@@ -211,6 +235,54 @@ export default function HomeScreen() {
                     >
                       <Text className="text-red-500 text-sm font-medium">
                         +{unreadVotes.length - 3}개 더보기
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              )}
+
+              {/* 미확인 게시글 */}
+              {unreadPosts.length > 0 && (
+                <View>
+                  <View className="flex-row items-center mb-2">
+                    <Text className="text-base font-bold text-gray-800">📋 새로운 게시글</Text>
+                    <View className="bg-indigo-500 rounded-full px-2 ml-2">
+                      <Text className="text-white text-xs font-bold">{unreadPosts.length}</Text>
+                    </View>
+                  </View>
+
+                  {unreadPosts.slice(0, 3).map((post) => (
+                    <TouchableOpacity
+                      key={post.id}
+                      onPress={() => {
+                        setSelectedPost(post);
+                        router.push('/(main)/posts' as any);
+                      }}
+                      className="bg-white border border-indigo-200 rounded-lg p-3 mb-2"
+                    >
+                      <View className="flex-row items-start justify-between">
+                        <View className="flex-1 flex-row items-center gap-2">
+                          {post.is_notice && (
+                            <View className="bg-indigo-500 rounded px-1.5 py-0.5">
+                              <Text className="text-white text-xs font-bold">공지</Text>
+                            </View>
+                          )}
+                          <Text className="text-gray-900 font-semibold text-sm flex-1" numberOfLines={1}>
+                            {post.title}
+                          </Text>
+                        </View>
+                        <Text className="text-lg">→</Text>
+                      </View>
+                    </TouchableOpacity>
+                  ))}
+
+                  {unreadPosts.length > 3 && (
+                    <TouchableOpacity
+                      onPress={() => router.push('/(main)/posts' as any)}
+                      className="items-center py-2"
+                    >
+                      <Text className="text-indigo-500 text-sm font-medium">
+                        +{unreadPosts.length - 3}개 더보기
                       </Text>
                     </TouchableOpacity>
                   )}

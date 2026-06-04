@@ -1,9 +1,11 @@
-import { TextInput, Text, View, TextInputProps } from 'react-native';
+import { TextInput, Text, View, TextInputProps, TouchableOpacity } from 'react-native';
+import { useState, forwardRef } from 'react';
 
 interface InputProps extends TextInputProps {
   label?: string;
   error?: string;
   phoneFormat?: boolean;
+  showToggle?: boolean;  // 비밀번호 눈 토글 버튼 표시
 }
 
 /**
@@ -26,7 +28,12 @@ export function formatPhoneNumber(phone: string): string {
   return `${cleaned.slice(0, 3)}-${cleaned.slice(3, 7)}-${cleaned.slice(7, 11)}`;
 }
 
-export function Input({ label, error, className, phoneFormat, onChangeText, value, ...props }: InputProps) {
+export const Input = forwardRef<TextInput, InputProps>(function Input(
+  { label, error, className, phoneFormat, showToggle, onChangeText, value, secureTextEntry, ...props },
+  ref
+) {
+  const [secure, setSecure] = useState(secureTextEntry ?? false);
+
   const handleChangeText = (text: string) => {
     if (phoneFormat) {
       const formatted = formatPhoneNumber(extractPhoneNumber(text));
@@ -41,16 +48,28 @@ export function Input({ label, error, className, phoneFormat, onChangeText, valu
   return (
     <View className="mb-4">
       {label && <Text className="text-sm font-medium text-gray-700 mb-1">{label}</Text>}
-      <TextInput
-        className={`border ${error ? 'border-red-400' : 'border-gray-300'} rounded-xl px-4 py-3 text-base bg-white ${className ?? ''}`}
-        style={{ color: '#111827' }}
-        placeholderTextColor="#9ca3af"
-        value={displayValue as string}
-        onChangeText={handleChangeText}
-        keyboardType={phoneFormat ? 'phone-pad' : 'default'}
-        {...props}
-      />
+      <View className="relative">
+        <TextInput
+          ref={ref}
+          className={`border ${error ? 'border-red-400' : 'border-gray-300'} rounded-xl px-4 py-3 text-base bg-white ${className ?? ''}`}
+          style={{ color: '#111827', paddingRight: showToggle ? 48 : 16 }}
+          placeholderTextColor="#9ca3af"
+          value={displayValue as string}
+          onChangeText={handleChangeText}
+          keyboardType={phoneFormat ? 'phone-pad' : 'default'}
+          secureTextEntry={showToggle ? secure : secureTextEntry}
+          {...props}
+        />
+        {showToggle && (
+          <TouchableOpacity
+            onPress={() => setSecure((v) => !v)}
+            style={{ position: 'absolute', right: 12, top: 0, bottom: 0, justifyContent: 'center', padding: 4 }}
+          >
+            <Text style={{ fontSize: 18, opacity: secure ? 0.25 : 1 }}>👁</Text>
+          </TouchableOpacity>
+        )}
+      </View>
       {error && <Text className="text-red-500 text-xs mt-1">{error}</Text>}
     </View>
   );
-}
+});

@@ -86,7 +86,14 @@ export default function MembersScreen() {
     Alert.alert('단원 삭제', `${member.name} 단원을 삭제할까요?`, [
       { text: '취소', style: 'cancel' },
       { text: '삭제', style: 'destructive', onPress: async () => {
-        await supabase.from('profiles').update({ is_deleted: true }).eq('id', member.id);
+        const { error } = await supabase
+          .from('profiles')
+          .update({ is_deleted: true })
+          .eq('id', member.id);
+        if (error) {
+          Alert.alert('삭제 실패', error.message);
+          return;
+        }
         await fetchMembers();
       }},
     ]);
@@ -138,31 +145,36 @@ export default function MembersScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         ListEmptyComponent={<View className="items-center py-12"><Text className="text-gray-400">단원이 없습니다</Text></View>}
         renderItem={({ item }) => (
-          <TouchableOpacity onPress={() => router.push(`/(main)/members/${item.id}`)} className="mb-3">
-            <Card className="flex-row items-center">
-              <View className="w-12 h-12 bg-indigo-100 rounded-full items-center justify-center mr-4">
-                <Text className="text-xl">{item.part === 'soprano' || item.part === 'alto' ? '👩' : '👨'}</Text>
-              </View>
-              <View className="flex-1">
-                <View className="flex-row items-center gap-2 mb-0.5">
-                  <Text className="text-base font-semibold text-gray-900">{item.name}</Text>
-                  {item.baptismal_name && <Text className="text-xs text-gray-400">({item.baptismal_name})</Text>}
+          <View className="mb-3 flex-row items-center">
+            <TouchableOpacity
+              onPress={() => router.push(`/(main)/members/${item.id}`)}
+              className="flex-1"
+            >
+              <Card className="flex-row items-center">
+                <View className="w-12 h-12 bg-indigo-100 rounded-full items-center justify-center mr-4">
+                  <Text className="text-xl">{item.part === 'soprano' || item.part === 'alto' ? '👩' : '👨'}</Text>
                 </View>
-                <View className="flex-row gap-1.5">
-                  {item.part && <Text className="text-xs text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full">{PART_LABELS[item.part]}</Text>}
-                  <Text className={`text-xs px-2 py-0.5 rounded-full font-medium ${item.role === 'leader' ? 'text-red-700 bg-red-50' : item.is_executive ? 'text-amber-700 bg-amber-50' : 'text-gray-500 bg-gray-100'}`}>
-                    {item.role === 'leader' ? '👑 ' : ''}{ROLE_LABELS[item.role]}
-                  </Text>
+                <View className="flex-1">
+                  <View className="flex-row items-center gap-2 mb-0.5">
+                    <Text className="text-base font-semibold text-gray-900">{item.name}</Text>
+                    {item.baptismal_name && <Text className="text-xs text-gray-400">({item.baptismal_name})</Text>}
+                  </View>
+                  <View className="flex-row gap-1.5">
+                    {item.part && <Text className="text-xs text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full">{PART_LABELS[item.part]}</Text>}
+                    <Text className={`text-xs px-2 py-0.5 rounded-full font-medium ${item.role === 'leader' ? 'text-red-700 bg-red-50' : item.is_executive ? 'text-amber-700 bg-amber-50' : 'text-gray-500 bg-gray-100'}`}>
+                      {item.role === 'leader' ? '👑 ' : ''}{ROLE_LABELS[item.role]}
+                    </Text>
+                  </View>
                 </View>
-              </View>
-              {isLeader && (
-                <TouchableOpacity onPress={() => handleDelete(item)} className="p-2">
-                  <Text className="text-red-400 text-base">🗑</Text>
-                </TouchableOpacity>
-              )}
-              <Text className="text-gray-400 ml-1">›</Text>
-            </Card>
-          </TouchableOpacity>
+                <Text className="text-gray-400 ml-1">›</Text>
+              </Card>
+            </TouchableOpacity>
+            {isExecutive && (
+              <TouchableOpacity onPress={() => handleDelete(item)} className="pl-3 py-4">
+                <Text className="text-red-400 text-xl">🗑</Text>
+              </TouchableOpacity>
+            )}
+          </View>
         )}
       />
 
