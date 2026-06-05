@@ -69,6 +69,7 @@ export default function MemberDetailScreen() {
         birthday: form.birthday,
         feast_day: form.feast_day,
         part: form.part,
+        is_deleted: form.is_deleted ?? false,
       };
 
       if (canChangeRole) {
@@ -92,12 +93,19 @@ export default function MemberDetailScreen() {
 
       const { error } = await supabase.from('profiles').update(updateData).eq('id', id);
       if (error) {
-        Alert.alert('오류', '저장에 실패했습니다.');
+        Alert.alert('오류', '저장에 실패했습니다: ' + error.message);
       } else {
-        setMember({ ...member, ...updateData } as Profile);
-        setEditing(false);
-        if (isLeaderChange) {
-          Alert.alert('완료', `${member.name}님이 새로운 단장이 되었습니다.`);
+        if (updateData.is_deleted) {
+          // 탈퇴 처리 시 목록으로 돌아가기
+          Alert.alert('완료', `${member.name}님이 탈퇴 처리되었습니다.`, [
+            { text: '확인', onPress: () => router.back() },
+          ]);
+        } else {
+          setMember({ ...member, ...updateData } as Profile);
+          setEditing(false);
+          if (isLeaderChange) {
+            Alert.alert('완료', `${member.name}님이 새로운 단장이 되었습니다.`);
+          }
         }
       }
     } catch (error) {
@@ -192,6 +200,32 @@ export default function MemberDetailScreen() {
                 </View>
               </View>
             ) : null}
+
+            {/* 탈퇴 처리 (임원만, 본인 제외) */}
+            {isExecutive && !isSelf && (
+              <TouchableOpacity
+                onPress={() => setForm((f) => ({ ...f, is_deleted: !f.is_deleted }))}
+                className={`flex-row items-center gap-3 rounded-xl px-4 py-3 mb-4 border ${
+                  form.is_deleted
+                    ? 'bg-red-50 border-red-400'
+                    : 'bg-white border-gray-200'
+                }`}
+              >
+                <View className={`w-5 h-5 rounded border-2 items-center justify-center ${
+                  form.is_deleted ? 'bg-red-500 border-red-500' : 'border-gray-300'
+                }`}>
+                  {form.is_deleted && <Text className="text-white text-xs font-bold">✓</Text>}
+                </View>
+                <View className="flex-1">
+                  <Text className={`text-sm font-semibold ${form.is_deleted ? 'text-red-600' : 'text-gray-700'}`}>
+                    탈퇴 처리
+                  </Text>
+                  {form.is_deleted && (
+                    <Text className="text-red-400 text-xs mt-0.5">저장 시 단원 목록에서 제외됩니다</Text>
+                  )}
+                </View>
+              </TouchableOpacity>
+            )}
 
             <View className="flex-row gap-3">
               <Button label="취소" variant="outline" onPress={() => setEditing(false)} className="flex-1" />

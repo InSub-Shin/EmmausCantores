@@ -3,6 +3,7 @@ import { View, Text, FlatList, TouchableOpacity, RefreshControl, Alert, Modal, S
 import { useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as DocumentPicker from 'expo-document-picker';
+import { File } from 'expo-file-system';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { supabase } from '@/lib/supabase';
@@ -16,6 +17,12 @@ import { Input } from '@/components/ui/Input';
 type FileItem = { name: string; uri: string; type: string; label: string };
 const SHEET_PARTS = ['전체', '소프라노', '알토', '테너', '베이스'] as const;
 const REACTION_EMOJIS = ['👏', '❤️', '🔥', '😊', '🎵', '🙏', '✨', '😭'] as const;
+
+// 원본 파일명으로 다운로드되도록 download 쿼리 파라미터를 부착해 URL 열기
+const openFileDownload = (file: { file_url: string; file_name: string }) => {
+  const sep = file.file_url.includes('?') ? '&' : '?';
+  Linking.openURL(`${file.file_url}${sep}download=${encodeURIComponent(file.file_name)}`);
+};
 
 export default function SongsScreen() {
   const { profile } = useAuthStore();
@@ -41,7 +48,7 @@ export default function SongsScreen() {
   const fetchSongs = useCallback(async () => {
     const { data } = await supabase
       .from('songs')
-      .select('id, title, description, youtube_url, youtube_links, youtube_titles, created_by, created_at, creator:profiles!created_by(name), reactions:song_reactions(id, user_id, emoji)')
+      .select('id, title, description, youtube_url, youtube_links, youtube_titles, created_by, created_at, creator:profiles!created_by(name), files:song_files(*), reactions:song_reactions(id, user_id, emoji)')
       .order('created_at', { ascending: false });
     if (data) setSongs(data as unknown as Song[]);
   }, []);
@@ -108,6 +115,38 @@ export default function SongsScreen() {
     }
   };
 
+  // 파일 1개를 스토리지에 업로드하고 song_files 레코드 생성. 실패 시 에러 메시지 반환.
+  const uploadSongFile = async (songId: string, file: FileItem): Promise<string | null> => {
+    try {
+      // 스토리지 key는 ASCII만 허용 → 한글/공백/특수문자 제거하고 확장자만 보존
+      const extMatch = file.name.match(/\.([a-zA-Z0-9]+)$/);
+      const ext = extMatch ? `.${extMatch[1].toLowerCase()}` : '';
+      const safeName = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}${ext}`;
+      const path = `songs/${songId}/${safeName}`;
+      // Expo 새 File API로 로컬 파일을 바이트로 읽음 (fetch().blob()는 빈 blob 생성 이슈)
+      const bytes = await new File(file.uri).bytes();
+      if (!bytes || bytes.length === 0) return `${file.name}: 파일을 읽을 수 없습니다.`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('song-files')
+        .upload(path, bytes, { contentType: file.type, upsert: false });
+      if (uploadError) return `${file.name}: ${uploadError.message}`;
+
+      const { data: { publicUrl } } = supabase.storage.from('song-files').getPublicUrl(path);
+      const { error: insertError } = await supabase.from('song_files').insert({
+        song_id: songId,
+        file_name: file.name,
+        file_url: publicUrl,
+        file_type: file.type,
+        label: file.label || '전체',
+      });
+      if (insertError) return `${file.name}: ${insertError.message}`;
+      return null;
+    } catch (e: any) {
+      return `${file.name}: ${e?.message ?? '알 수 없는 오류'}`;
+    }
+  };
+
   const handleCreate = async () => {
     if (!form.title.trim()) { Alert.alert('입력 오류', '제목을 입력해주세요.'); return; }
     setSaving(true);
@@ -130,22 +169,13 @@ export default function SongsScreen() {
     if (error || !songData) { Alert.alert('오류', '특송 정보 추가에 실패했습니다.'); setSaving(false); return; }
 
     // 파일 업로드
+    const uploadErrors: string[] = [];
     for (const file of files) {
-      const path = `songs/${songData.id}/${Date.now()}_${file.name}`;
-      const response = await fetch(file.uri);
-      const blob = await response.blob();
-
-      const { data: uploaded } = await supabase.storage.from('song-files').upload(path, blob, { contentType: file.type });
-      if (uploaded) {
-        const { data: { publicUrl } } = supabase.storage.from('song-files').getPublicUrl(path);
-        await supabase.from('song_files').insert({
-          song_id: songData.id,
-          file_name: file.name,
-          file_url: publicUrl,
-          file_type: file.type,
-          label: file.label || '전체',
-        });
-      }
+      const err = await uploadSongFile(songData.id, file);
+      if (err) uploadErrors.push(err);
+    }
+    if (uploadErrors.length > 0) {
+      Alert.alert('일부 파일 업로드 실패', uploadErrors.join('\n'));
     }
 
     setShowCreate(false);
@@ -187,22 +217,13 @@ export default function SongsScreen() {
     }
 
     // 새로운 파일 업로드
+    const editUploadErrors: string[] = [];
     for (const file of editFiles) {
-      const path = `songs/${selectedSong!.id}/${Date.now()}_${file.name}`;
-      const response = await fetch(file.uri);
-      const blob = await response.blob();
-
-      const { data: uploaded } = await supabase.storage.from('song-files').upload(path, blob, { contentType: file.type });
-      if (uploaded) {
-        const { data: { publicUrl } } = supabase.storage.from('song-files').getPublicUrl(path);
-        await supabase.from('song_files').insert({
-          song_id: selectedSong!.id,
-          file_name: file.name,
-          file_url: publicUrl,
-          file_type: file.type,
-          label: file.label || '전체',
-        });
-      }
+      const err = await uploadSongFile(selectedSong!.id, file);
+      if (err) editUploadErrors.push(err);
+    }
+    if (editUploadErrors.length > 0) {
+      Alert.alert('일부 파일 업로드 실패', editUploadErrors.join('\n'));
     }
 
     setEditingSong(false);
@@ -470,7 +491,7 @@ export default function SongsScreen() {
                     {selectedSong.files.map((file: any) => (
                       <TouchableOpacity
                         key={file.id}
-                        onPress={() => Linking.openURL(file.file_url)}
+                        onPress={() => openFileDownload(file)}
                         className="flex-row items-center bg-indigo-50 rounded-xl px-3 py-2 mb-1"
                       >
                         <Text className="text-indigo-400 mr-2">🎼</Text>
@@ -480,7 +501,7 @@ export default function SongsScreen() {
                           )}
                           <Text className="text-indigo-700 text-sm" numberOfLines={1}>{file.file_name}</Text>
                         </View>
-                        <Text className="text-indigo-400 text-xs ml-2">열기 →</Text>
+                        <Text className="text-indigo-400 text-xs ml-2">다운로드 ↓</Text>
                       </TouchableOpacity>
                     ))}
                   </View>
@@ -695,13 +716,14 @@ function SongCard({ song }: { song: Song }) {
           {song.files.map((file: SongFile) => (
             <TouchableOpacity
               key={file.id}
-              onPress={() => Linking.openURL(file.file_url)}
+              onPress={() => openFileDownload(file)}
               className="flex-row items-center bg-indigo-50 rounded-xl px-3 py-2 mb-1"
             >
               <Text className="text-indigo-400 mr-2">🎼</Text>
               <Text className="text-indigo-700 text-sm flex-1" numberOfLines={1}>
                 {file.label && file.label !== '전체' ? `[${file.label}] ` : ''}{file.file_name}
               </Text>
+              <Text className="text-indigo-400 text-xs ml-2">↓</Text>
             </TouchableOpacity>
           ))}
         </View>
