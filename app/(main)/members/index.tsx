@@ -41,7 +41,10 @@ export default function MembersScreen() {
     if (data) setMembers(data as Profile[]);
   }, []);
 
-  useEffect(() => { fetchMembers(); }, [fetchMembers]);
+  // 화면 포커스 시마다 목록 새로고침 (단원 정보 수정/탈퇴 후 돌아올 때 반영)
+  useFocusEffect(
+    useCallback(() => { fetchMembers(); }, [fetchMembers])
+  );
 
   useEffect(() => {
     let result = members;

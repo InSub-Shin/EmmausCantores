@@ -69,7 +69,6 @@ export default function MemberDetailScreen() {
         birthday: form.birthday,
         feast_day: form.feast_day,
         part: form.part,
-        is_deleted: form.is_deleted ?? false,
       };
 
       if (canChangeRole) {
@@ -94,18 +93,34 @@ export default function MemberDetailScreen() {
       const { error } = await supabase.from('profiles').update(updateData).eq('id', id);
       if (error) {
         Alert.alert('오류', '저장에 실패했습니다: ' + error.message);
+        setSaving(false);
+        return;
+      }
+
+      // 탈퇴/복구는 RLS 우회 RPC로 처리 (is_deleted 직접 UPDATE가 RLS에 막히는 문제 우회)
+      const targetDeleted = form.is_deleted ?? false;
+      if (targetDeleted !== member.is_deleted) {
+        const { error: delErr } = await supabase.rpc('admin_set_member_deleted', {
+          p_id: id,
+          p_deleted: targetDeleted,
+        });
+        if (delErr) {
+          Alert.alert('오류', '탈퇴 처리에 실패했습니다: ' + delErr.message);
+          setSaving(false);
+          return;
+        }
+      }
+
+      if (targetDeleted) {
+        // 탈퇴 처리 시 목록으로 돌아가기
+        Alert.alert('완료', `${member.name}님이 탈퇴 처리되었습니다.`, [
+          { text: '확인', onPress: () => router.back() },
+        ]);
       } else {
-        if (updateData.is_deleted) {
-          // 탈퇴 처리 시 목록으로 돌아가기
-          Alert.alert('완료', `${member.name}님이 탈퇴 처리되었습니다.`, [
-            { text: '확인', onPress: () => router.back() },
-          ]);
-        } else {
-          setMember({ ...member, ...updateData } as Profile);
-          setEditing(false);
-          if (isLeaderChange) {
-            Alert.alert('완료', `${member.name}님이 새로운 단장이 되었습니다.`);
-          }
+        setMember({ ...member, ...updateData, is_deleted: false } as Profile);
+        setEditing(false);
+        if (isLeaderChange) {
+          Alert.alert('완료', `${member.name}님이 새로운 단장이 되었습니다.`);
         }
       }
     } catch (error) {
