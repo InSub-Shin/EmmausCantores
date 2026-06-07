@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
-import { View, Text, ScrollView, FlatList, TouchableOpacity, Alert, Modal, Linking, BackHandler } from 'react-native';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { View, Text, ScrollView, FlatList, TouchableOpacity, Alert, Modal, Linking, BackHandler, PanResponder } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Calendar, DateData } from 'react-native-calendars';
@@ -65,6 +65,32 @@ export default function ScheduleScreen() {
   const [voteShowNonVotersModal, setVoteShowNonVotersModal] = useState(false);
   const [voteSelectedNonVoters, setVoteSelectedNonVoters] = useState<Set<string>>(new Set());
   const [allMembers, setAllMembers] = useState<any[]>([]);
+
+  // 스와이프 월 이동 — PanResponder는 한 번만 생성되므로 ref로 최신값 유지
+  const displayedMonthRef = useRef(displayedMonth);
+  const selectedDateRef = useRef(selectedDate);
+  useEffect(() => { displayedMonthRef.current = displayedMonth; }, [displayedMonth]);
+  useEffect(() => { selectedDateRef.current = selectedDate; }, [selectedDate]);
+
+  const swipeHandler = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_, { dx, dy }) => Math.abs(dx) > 15 && Math.abs(dx) > Math.abs(dy) * 2,
+      onPanResponderRelease: (_, { dx }) => {
+        if (Math.abs(dx) < 50) return;
+        const delta = dx < 0 ? 1 : -1;
+        const cur = new Date(displayedMonthRef.current);
+        const newDate = new Date(cur.getFullYear(), cur.getMonth() + delta, 1);
+        const pad = (n: number) => String(n).padStart(2, '0');
+        const newMonth = `${newDate.getFullYear()}-${pad(newDate.getMonth() + 1)}-01`;
+        const sel = new Date(selectedDateRef.current);
+        const lastDay = new Date(newDate.getFullYear(), newDate.getMonth() + 1, 0).getDate();
+        const safeDay = Math.min(sel.getDate(), lastDay);
+        const newSelected = `${newDate.getFullYear()}-${pad(newDate.getMonth() + 1)}-${pad(safeDay)}`;
+        setDisplayedMonth(newMonth);
+        setSelectedDate(newSelected);
+      },
+    })
+  ).current;
 
   const fetchSchedules = useCallback(async () => {
     const { data } = await supabase
@@ -658,7 +684,7 @@ export default function ScheduleScreen() {
       <ScrollView>
         {/* 달력 */}
         {selectedDate && (
-          <View className="bg-white">
+          <View className="bg-white" {...swipeHandler.panHandlers}>
             <Calendar
               key={displayedMonth}
               current={displayedMonth}
