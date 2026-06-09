@@ -1,29 +1,10 @@
 import { View, Text, TouchableOpacity, Alert, ScrollView, KeyboardAvoidingView, Platform, TextInput, Modal } from 'react-native';
 import { useRef, useState } from 'react';
 import { router } from 'expo-router';
-import * as Linking from 'expo-linking';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/store/auth';
-import { Input } from '@/components/ui/Input';
+import { Input, getPasswordHint } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
-import { Profile } from '@/types';
-
-const DEV_MOCK_PROFILE: Profile = {
-  id: 'dev-test-user',
-  auth_id: null,
-  name: '테스트 단원',
-  baptismal_name: '베드로',
-  phone: '010-0000-0000',
-  birthday: '1990-01-01',
-  feast_day: '06-29',
-  part: 'tenor',
-  role: 'leader',
-  is_executive: true,
-  is_deleted: false,
-  profile_image: null,
-  push_token: null,
-  created_at: new Date().toISOString(),
-};
 
 type Mode = 'login' | 'signup';
 
@@ -43,7 +24,7 @@ export default function LoginScreen() {
   const [showForgot, setShowForgot] = useState(false);
   const [forgotEmail, setForgotEmail] = useState('');
   const [forgotLoading, setForgotLoading] = useState(false);
-  const { setProfile, fetchProfile } = useAuthStore();
+  const { fetchProfile } = useAuthStore();
 
   // refs for keyboard next navigation
   const emailRef = useRef<TextInput>(null);
@@ -114,45 +95,24 @@ export default function LoginScreen() {
     }
     setLoading(true);
     try {
-      const { data, error } = await supabase.auth.signUp({ email: email.trim(), password });
+      const targetEmail = email.trim();
+      const { data, error } = await supabase.auth.signUp({ email: targetEmail, password });
       if (error) throw error;
 
       const userId = data.user?.id;
       if (!userId) throw new Error('계정 생성에 실패했습니다.');
 
-      // 이미 존재하는 프로필이면 name만 업데이트, 없으면 새로 생성
-      const { data: existing } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('auth_id', userId)
-        .maybeSingle();
-
-      if (existing) {
-        const { error: updateError } = await supabase
-          .from('profiles')
-          .update({ name: name.trim() })
-          .eq('id', existing.id);
-        if (updateError) throw updateError;
-      } else {
-        const { error: insertError } = await supabase.from('profiles').insert({
-          auth_id: userId,
-          name: name.trim(),
-          role: 'member',
-          is_executive: false,
-          is_deleted: false,
-        });
-        if (insertError) throw insertError;
-      }
-
       if (data.session) {
+        // 이메일 인증 비활성화 → 즉시 세션 생성됨. 프로필 생성 후 진행.
+        await upsertProfile(userId, name.trim());
         await fetchProfile(userId);
         router.replace('/(auth)/setup');
       } else {
-        Alert.alert(
-          '가입 완료 🎉',
-          `${email.trim()}로 인증 메일을 보냈습니다.\n메일함에서 인증 링크를 클릭하면 로그인할 수 있습니다.`,
-          [{ text: '확인', onPress: () => reset('login') }]
-        );
+        // 이메일 인증 필요 → OTP 인증 화면으로 이동 (프로필 생성은 인증 후)
+        router.push({
+          pathname: '/(auth)/verify-email' as any,
+          params: { email: targetEmail, name: name.trim() },
+        });
       }
     } catch (e: any) {
       if (e.message?.includes('already registered') || e.message?.includes('already been registered')) {
@@ -162,6 +122,26 @@ export default function LoginScreen() {
       }
     } finally {
       setLoading(false);
+    }
+  }
+
+  // 프로필 생성/이름 갱신 (있으면 이름만 업데이트)
+  async function upsertProfile(userId: string, displayName: string) {
+    const { data: existing } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('auth_id', userId)
+      .maybeSingle();
+    if (existing) {
+      await supabase.from('profiles').update({ name: displayName }).eq('id', existing.id);
+    } else {
+      await supabase.from('profiles').insert({
+        auth_id: userId,
+        name: displayName,
+        role: 'member',
+        is_executive: false,
+        is_deleted: false,
+      });
     }
   }
 
@@ -187,8 +167,8 @@ export default function LoginScreen() {
       return;
     }
     setForgotLoading(true);
-    const redirectTo = Linking.createURL('reset-password');
-    const { error } = await supabase.auth.resetPasswordForEmail(forgotEmail.trim(), { redirectTo });
+    const targetEmail = forgotEmail.trim();
+    const { error } = await supabase.auth.resetPasswordForEmail(targetEmail);
     setForgotLoading(false);
     if (error) {
       Alert.alert('오류', error.message);
@@ -197,8 +177,9 @@ export default function LoginScreen() {
     setShowForgot(false);
     setForgotEmail('');
     Alert.alert(
-      '메일 발송 완료',
-      `${forgotEmail.trim()}로 비밀번호 재설정 링크를 보냈습니다.\n메일함을 확인해주세요.`
+      '인증 코드 발송',
+      `${targetEmail}로 6자리 인증 코드를 보냈습니다.\n메일함(스팸함 포함)을 확인해주세요.`,
+      [{ text: '확인', onPress: () => router.push({ pathname: '/(auth)/reset-password', params: { email: targetEmail } }) }]
     );
   }
 
@@ -281,6 +262,8 @@ export default function LoginScreen() {
               : handleSubmit
             }
             blurOnSubmit={mode !== 'signup'}
+            hint={mode === 'signup' ? getPasswordHint(password)?.message : undefined}
+            hintValid={mode === 'signup' ? getPasswordHint(password)?.valid : undefined}
           />
           {mode === 'signup' && (
             <Input
@@ -295,6 +278,8 @@ export default function LoginScreen() {
               autoCorrect={false}
               returnKeyType="done"
               onSubmitEditing={handleSubmit}
+              hint={passwordConfirm ? (password === passwordConfirm ? '✓ 비밀번호가 일치합니다' : '비밀번호가 일치하지 않습니다') : undefined}
+              hintValid={passwordConfirm ? password === passwordConfirm : undefined}
             />
           )}
           <View className="mt-2">
@@ -318,15 +303,7 @@ export default function LoginScreen() {
           </TouchableOpacity>
         )}
 
-        {/* 테스트 모드 */}
-        <TouchableOpacity
-          onPress={() => { setProfile(DEV_MOCK_PROFILE); router.replace('/(main)/home'); }}
-          className="mt-4 items-center py-3"
-        >
-          <Text className="text-gray-400 text-xs">🧪 테스트 모드 (DB 미연결)</Text>
-        </TouchableOpacity>
-
-        <Text className="text-xs text-gray-400 mt-4 text-center">
+        <Text className="text-xs text-gray-400 mt-6 text-center">
           로그인 시 앱의 이용약관 및 개인정보처리방침에{'\n'}동의하는 것으로 간주됩니다.
         </Text>
       </ScrollView>

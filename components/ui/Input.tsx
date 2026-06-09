@@ -6,6 +6,8 @@ interface InputProps extends TextInputProps {
   error?: string;
   phoneFormat?: boolean;
   showToggle?: boolean;  // 비밀번호 눈 토글 버튼 표시
+  hint?: string;         // 입력칸 하단 안내 문구
+  hintValid?: boolean;   // true=초록, false=빨강
 }
 
 /**
@@ -28,8 +30,27 @@ export function formatPhoneNumber(phone: string): string {
   return `${cleaned.slice(0, 3)}-${cleaned.slice(3, 7)}-${cleaned.slice(7, 11)}`;
 }
 
+/**
+ * 비밀번호 유효성 검사 (영문+숫자 조합 6자 이상)
+ * 입력값이 비어있으면 null 반환(힌트 미표시)
+ */
+export function getPasswordHint(pw: string): { valid: boolean; message: string } | null {
+  if (!pw) return null;
+  const hasLetter = /[a-zA-Z]/.test(pw);
+  const hasNumber = /[0-9]/.test(pw);
+  const longEnough = pw.length >= 6;
+  if (longEnough && hasLetter && hasNumber) {
+    return { valid: true, message: '✓ 사용 가능한 비밀번호입니다' };
+  }
+  const missing: string[] = [];
+  if (!longEnough) missing.push('6자 이상');
+  if (!hasLetter) missing.push('영문');
+  if (!hasNumber) missing.push('숫자');
+  return { valid: false, message: `${missing.join(', ')} 필요` };
+}
+
 export const Input = forwardRef<TextInput, InputProps>(function Input(
-  { label, error, className, phoneFormat, showToggle, onChangeText, value, secureTextEntry, ...props },
+  { label, error, className, phoneFormat, showToggle, hint, hintValid, onChangeText, value, secureTextEntry, ...props },
   ref
 ) {
   const [secure, setSecure] = useState(secureTextEntry ?? false);
@@ -70,6 +91,11 @@ export const Input = forwardRef<TextInput, InputProps>(function Input(
         )}
       </View>
       {error && <Text className="text-red-500 text-xs mt-1">{error}</Text>}
+      {!error && hint ? (
+        <Text className={`text-xs mt-1 ${hintValid ? 'text-green-600' : 'text-red-500'}`}>
+          {hint}
+        </Text>
+      ) : null}
     </View>
   );
 });
